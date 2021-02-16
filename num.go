@@ -47,3 +47,22 @@ func (z *Nat) ModInverse(x Nat, m Modulus) *Nat {
 func (z *Nat) Exp(x Nat, y Nat, m Modulus) *Nat {
 	panic("unimplemented")
 }
+
+// FillBytes writes out the big endian bytes of a natural number.
+//
+// This will always write out the full capacity of the number, without
+// any kind trimming.
+//
+// This will panic if the buffer's length cannot accomodate the capacity of the number
+func (z *Nat) FillBytes(buf []byte) []byte {
+	panic("unimplemented")
+}
+
+// SetBytes interprets a number in big-endian format, stores it in z, and returns z.
+//
+// The exact length of the buffer must be public information! This length also dictates
+// the capacity of the number returned, and thus the resulting timings for operations
+// involving that number.
+func (z *Nat) SetBytes(buf []byte) *Nat {
+	panic("unimplemented")
+}
