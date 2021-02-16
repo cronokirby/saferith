@@ -27,10 +27,24 @@ func (z *Nat) ModAdd(x Nat, y Nat, m Modulus) *Nat {
 	panic("unimplemented")
 }
 
+// Add calculates z <- x + y, modulo 2^cap
+//
+// The capacity is given in bits, and also controls the size of the result.
+func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
+	panic("unimplemented")
+}
+
 // ModMul calculates z <- x * y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x Nat, y Nat, m Modulus) *Nat {
+	panic("unimplemented")
+}
+
+// Mul calculates z <- x * y, modulo 2^cap
+//
+// The capacity is given in bits, and also controls the size of the result.
+func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
 	panic("unimplemented")
 }
 
