@@ -43,7 +43,12 @@ func (z *Nat) ModAdd(x Nat, y Nat, m Modulus) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
-	panic("unimplemented")
+	// TODO: Use an actual implementation
+	z.i = *z.i.Add(&x.i, &y.i)
+	bytes := z.i.Bytes()
+	numBytes := (cap + 8 - 1) >> 3
+	z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+	return z
 }
 
 // ModMul calculates z <- x * y mod m
