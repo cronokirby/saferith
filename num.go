@@ -1,5 +1,9 @@
 package safenum
 
+import (
+	"math/big"
+)
+
 type word uint32
 
 // Nat represents an arbitrary sized natural number.
@@ -11,7 +15,8 @@ type word uint32
 // The capacity of a number is usually inherited through whatever method was used to
 // create the number in the first place.
 type Nat struct {
-	limbs []word
+	// TODO: Don't rely math/big
+	i big.Int
 }
 
 // Modulus represents a natural number, acting as some kind of modulus.
@@ -74,7 +79,12 @@ func (z *Nat) Exp(x Nat, y Nat, m Modulus) *Nat {
 
 // Cmp compares two natural numbers, returning 1 if they're equal and 0 otherwise
 func (z Nat) Cmp(x Nat) int {
-	panic("unimplemented")
+	// TODO: Use actual implementation
+	ret := z.i.Cmp(&x.i)
+	if ret < 0 {
+		return -ret
+	}
+	return ret
 }
 
 // FillBytes writes out the big endian bytes of a natural number.
@@ -97,6 +107,9 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 }
 
 // SetUint64 sets z to x, and returns z
+//
+// This will have the exact same capacity as a 64 bit number
 func (z *Nat) SetUint64(x uint64) *Nat {
-	panic("unimplemented")
+	z.i.SetUint64(x)
+	return z
 }
