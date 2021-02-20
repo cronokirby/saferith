@@ -3,6 +3,13 @@ package safenum
 type word uint32
 
 // Nat represents an arbitrary sized natural number.
+//
+// Different methods on Nats will talk about a "capacity". The capacity represents
+// the announced size of some number. Operations may vary in time *only* relative
+// to this capacity, and not to the actual value of the number.
+//
+// The capacity of a number is usually inherited through whatever method was used to
+// create the number in the first place.
 type Nat struct {
 	limbs []word
 }
