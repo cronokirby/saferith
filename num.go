@@ -69,6 +69,14 @@ func (z *Nat) Exp(x Nat, y Nat, m Modulus) *Nat {
 	panic("unimplemented")
 }
 
+// TODO: What should the semantics here be for equivalent values with differing capacities?
+// Is it possible to do normalized comparison in consant time?
+
+// Cmp compares two natural numbers, returning 1 if they're equal and 0 otherwise
+func (z Nat) Cmp(x Nat) int {
+	panic("unimplemented")
+}
+
 // FillBytes writes out the big endian bytes of a natural number.
 //
 // This will always write out the full capacity of the number, without
