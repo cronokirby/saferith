@@ -95,3 +95,8 @@ func (z *Nat) FillBytes(buf []byte) []byte {
 func (z *Nat) SetBytes(buf []byte) *Nat {
 	panic("unimplemented")
 }
+
+// SetUint64 sets z to x, and returns z
+func (z *Nat) SetUint64(x uint64) *Nat {
+	panic("unimplemented")
+}
