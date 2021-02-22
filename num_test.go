@@ -1,6 +1,9 @@
 package safenum
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
@@ -121,5 +124,16 @@ func TestSetBytesExamples(t *testing.T) {
 	z.SetUint64(0xAABBCCDDEEFF)
 	if x.Cmp(z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
+	}
+}
+
+func TestFillBytesExamples(t *testing.T) {
+	var x Nat
+	expected := []byte{0xAA, 0xBB, 0xCC, 0xDD}
+	x.SetBytes(expected)
+	buf := make([]byte, 4)
+	x.FillBytes(buf)
+	if !bytes.Equal(expected, buf) {
+		t.Errorf("%+v != %+v", expected, buf)
 	}
 }

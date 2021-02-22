@@ -111,7 +111,8 @@ func (z Nat) Cmp(x Nat) int {
 //
 // This will panic if the buffer's length cannot accomodate the capacity of the number
 func (z *Nat) FillBytes(buf []byte) []byte {
-	panic("unimplemented")
+	z.i.FillBytes(buf)
+	return buf
 }
 
 // SetBytes interprets a number in big-endian format, stores it in z, and returns z.
