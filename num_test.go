@@ -35,3 +35,19 @@ func TestAddExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
+
+func TestMulExamples(t *testing.T) {
+	var x, y, z Nat
+	x.SetUint64(10)
+	y.SetUint64(10)
+	z.SetUint64(100)
+	x = *x.Mul(x, y, 8)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	z.SetUint64(232)
+	x = *x.Mul(x, y, 8)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}

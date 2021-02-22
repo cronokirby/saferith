@@ -62,7 +62,12 @@ func (z *Nat) ModMul(x Nat, y Nat, m Modulus) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
-	panic("unimplemented")
+	// TODO: Use an actual implementation
+	z.i = *z.i.Mul(&x.i, &y.i)
+	bytes := z.i.Bytes()
+	numBytes := (cap + 8 - 1) >> 3
+	z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+	return z
 }
 
 // ModInverse calculates z <- x^-1 mod m
