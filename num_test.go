@@ -49,6 +49,20 @@ func TestAddCommutative(t *testing.T) {
 	}
 }
 
+func testMulCommutative(a Nat, b Nat) bool {
+	var aTimesB, bTimesA Nat
+	aTimesB.Mul(a, b, 128)
+	bTimesA.Mul(b, a, 128)
+	return aTimesB.Cmp(bTimesA) == 1
+}
+
+func TestMulCommutative(t *testing.T) {
+	err := quick.Check(testMulCommutative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
