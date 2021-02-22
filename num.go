@@ -90,6 +90,8 @@ func (z *Nat) Exp(x Nat, y Nat, m Nat) *Nat {
 
 // TODO: What should the semantics here be for equivalent values with differing capacities?
 // Is it possible to do normalized comparison in consant time?
+// NOTE: It would be unsound to do normalized comparison, since this would leak the number
+// of leading zeroes
 
 // Cmp compares two natural numbers, returning 1 if they're equal and 0 otherwise
 func (z Nat) Cmp(x Nat) int {
