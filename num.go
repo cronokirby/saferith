@@ -120,7 +120,8 @@ func (z *Nat) FillBytes(buf []byte) []byte {
 // the capacity of the number returned, and thus the resulting timings for operations
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
-	panic("unimplemented")
+	z.i.SetBytes(buf)
+	return z
 }
 
 // SetUint64 sets z to x, and returns z

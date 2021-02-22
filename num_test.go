@@ -109,3 +109,17 @@ func TestExpExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
+
+func TestSetBytesExamples(t *testing.T) {
+	var x, z Nat
+	x.SetBytes([]byte{0x12, 0x34, 0x56})
+	z.SetUint64(0x123456)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetBytes([]byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF})
+	z.SetUint64(0xAABBCCDDEEFF)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
