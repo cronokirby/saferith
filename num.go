@@ -85,7 +85,8 @@ func (z *Nat) ModInverse(x Nat, m Nat) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) Exp(x Nat, y Nat, m Nat) *Nat {
-	panic("unimplemented")
+	z.i = *z.i.Exp(&x.i, &y.i, &m.i)
+	return z
 }
 
 // TODO: What should the semantics here be for equivalent values with differing capacities?
