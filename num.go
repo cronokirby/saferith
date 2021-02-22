@@ -23,6 +23,7 @@ type Nat struct {
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x Nat, m Nat) *Nat {
+	// TODO: Use an actual implementation
 	z.i = *z.i.Mod(&x.i, &m.i)
 	return z
 }
@@ -31,6 +32,7 @@ func (z *Nat) Mod(x Nat, m Nat) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) ModAdd(x Nat, y Nat, m Nat) *Nat {
+	// TODO: Use an actual implementation
 	z.i = *z.i.Add(&x.i, &y.i)
 	z.i = *z.i.Mod(&z.i, &m.i)
 	return z
@@ -52,6 +54,7 @@ func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x Nat, y Nat, m Nat) *Nat {
+	// TODO: Use an actual implementation
 	z.i = *z.i.Mul(&x.i, &y.i)
 	z.i = *z.i.Mod(&z.i, &m.i)
 	return z
@@ -119,6 +122,7 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 //
 // This will have the exact same capacity as a 64 bit number
 func (z *Nat) SetUint64(x uint64) *Nat {
+	// TODO: Use an actual implementation
 	z.i.SetUint64(x)
 	return z
 }
