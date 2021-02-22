@@ -35,6 +35,20 @@ func TestAddZeroIdentity(t *testing.T) {
 	}
 }
 
+func testAddCommutative(a Nat, b Nat) bool {
+	var aPlusB, bPlusA Nat
+	aPlusB.Add(a, b, 128)
+	bPlusA.Add(b, a, 128)
+	return aPlusB.Cmp(bPlusA) == 1
+}
+
+func TestAddCommutative(t *testing.T) {
+	err := quick.Check(testAddCommutative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
