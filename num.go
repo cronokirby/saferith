@@ -15,7 +15,7 @@ type word uint32
 // The capacity of a number is usually inherited through whatever method was used to
 // create the number in the first place.
 type Nat struct {
-	// TODO: Don't rely math/big
+	// TODO: Don't rely on math/big
 	i big.Int
 }
 
@@ -51,7 +51,9 @@ func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x Nat, y Nat, m Nat) *Nat {
-	panic("unimplemented")
+	z.i = *z.i.Mul(&x.i, &y.i)
+	z.i = *z.i.Mod(&z.i, &m.i)
+	return z
 }
 
 // Mul calculates z <- x * y, modulo 2^cap

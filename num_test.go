@@ -63,3 +63,15 @@ func TestModAddExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
+
+func TestModMulExamples(t *testing.T) {
+	var x, y, m, z Nat
+	m.SetUint64(13)
+	x.SetUint64(40)
+	y.SetUint64(40)
+	x = *x.ModMul(x, y, m)
+	z.SetUint64(1)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
