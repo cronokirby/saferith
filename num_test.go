@@ -37,9 +37,14 @@ func TestAddZeroIdentity(t *testing.T) {
 
 func testAddCommutative(a Nat, b Nat) bool {
 	var aPlusB, bPlusA Nat
-	aPlusB.Add(a, b, 128)
-	bPlusA.Add(b, a, 128)
-	return aPlusB.Cmp(bPlusA) == 1
+	for _, x := range []uint{256, 128, 64, 32, 8} {
+		aPlusB.Add(a, b, x)
+		bPlusA.Add(b, a, x)
+		if aPlusB.Cmp(bPlusA) != 1 {
+			return false
+		}
+	}
+	return true
 }
 
 func TestAddCommutative(t *testing.T) {
@@ -51,9 +56,14 @@ func TestAddCommutative(t *testing.T) {
 
 func testMulCommutative(a Nat, b Nat) bool {
 	var aTimesB, bTimesA Nat
-	aTimesB.Mul(a, b, 128)
-	bTimesA.Mul(b, a, 128)
-	return aTimesB.Cmp(bTimesA) == 1
+	for _, x := range []uint{256, 128, 64, 32, 8} {
+		aTimesB.Mul(a, b, x)
+		bTimesA.Mul(b, a, x)
+		if aTimesB.Cmp(bTimesA) != 1 {
+			return false
+		}
+	}
+	return true
 }
 
 func TestMulCommutative(t *testing.T) {
