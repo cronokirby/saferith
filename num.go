@@ -76,7 +76,9 @@ func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x Nat, m Nat) *Nat {
-	panic("unimplemented")
+	// TODO: Use actual implementation
+	z.i = *z.i.ModInverse(&x.i, &m.i)
+	return z
 }
 
 // Exp calculates z <- x^y mod m

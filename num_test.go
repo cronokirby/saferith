@@ -86,3 +86,14 @@ func TestModExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
+
+func TestModInverseExamples(t *testing.T) {
+	var x, z, m Nat
+	x.SetUint64(2)
+	m.SetUint64(13)
+	x = *x.ModInverse(x, m)
+	z.SetUint64(7)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
