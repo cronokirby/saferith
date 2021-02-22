@@ -46,7 +46,9 @@ func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
 	z.i = *z.i.Add(&x.i, &y.i)
 	bytes := z.i.Bytes()
 	numBytes := (cap + 8 - 1) >> 3
-	z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+	if int(numBytes) < len(bytes) {
+		z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+	}
 	return z
 }
 
@@ -68,7 +70,9 @@ func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
 	z.i = *z.i.Mul(&x.i, &y.i)
 	bytes := z.i.Bytes()
 	numBytes := (cap + 8 - 1) >> 3
-	z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+	if int(numBytes) < len(bytes) {
+		z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+	}
 	return z
 }
 
@@ -98,10 +102,10 @@ func (z *Nat) Exp(x Nat, y Nat, m Nat) *Nat {
 func (z Nat) Cmp(x Nat) int {
 	// TODO: Use actual implementation
 	ret := z.i.Cmp(&x.i)
-	if ret < 0 {
-		return -ret
+	if ret == 0 {
+		return 1
 	}
-	return ret
+	return 0
 }
 
 // FillBytes writes out the big endian bytes of a natural number.
