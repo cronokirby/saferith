@@ -23,7 +23,8 @@ type Nat struct {
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x Nat, m Nat) *Nat {
-	panic("unimplemented")
+	z.i = *z.i.Mod(&x.i, &m.i)
+	return z
 }
 
 // ModAdd calculates z <- x + y mod m
