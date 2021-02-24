@@ -157,6 +157,20 @@ func TestModAndTruncationMatch(t *testing.T) {
 	}
 }
 
+func testModIdempotent(a Nat, m Nat) bool {
+	var way1, way2 Nat
+	way1.Mod(a, m)
+	way2.Mod(way1, m)
+	return way1.Cmp(way2) == 1
+}
+
+func TestModIdempotent(t *testing.T) {
+	err := quick.Check(testModIdempotent, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
