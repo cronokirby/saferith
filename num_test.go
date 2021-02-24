@@ -231,6 +231,32 @@ func TestModMulAssociative(t *testing.T) {
 	}
 }
 
+func testModInverseMultiplication(a Nat) bool {
+	var scratch, m, one, zero Nat
+	zero.SetUint64(0)
+	one.SetUint64(1)
+	for _, x := range []uint64{2, 3, 5, 7, 13, 19, 47, 97} {
+		m.SetUint64(x)
+		scratch.Mod(a, m)
+		if scratch.Cmp(zero) == 1 {
+			continue
+		}
+		scratch.ModInverse(a, m)
+		scratch.ModMul(scratch, a, m)
+		if scratch.Cmp(one) != 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func TestModInverseMultiplication(t *testing.T) {
+	err := quick.Check(testModInverseMultiplication, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
