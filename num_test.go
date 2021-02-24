@@ -201,6 +201,36 @@ func TestModAddAssociative(t *testing.T) {
 	}
 }
 
+func testModMulCommutative(a Nat, b Nat, m Nat) bool {
+	var aPlusB, bPlusA Nat
+	aPlusB.ModMul(a, b, m)
+	bPlusA.ModMul(b, a, m)
+	return aPlusB.Cmp(bPlusA) == 1
+}
+
+func TestModMulCommutative(t *testing.T) {
+	err := quick.Check(testModMulCommutative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testModMulAssociative(a Nat, b Nat, c Nat, m Nat) bool {
+	var order1, order2 Nat
+	order1 = *order1.ModMul(a, b, m)
+	order1.ModMul(order1, c, m)
+	order2 = *order2.ModMul(b, c, m)
+	order2.ModMul(a, order2, m)
+	return order1.Cmp(order2) == 1
+}
+
+func TestModMulAssociative(t *testing.T) {
+	err := quick.Check(testModMulAssociative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
