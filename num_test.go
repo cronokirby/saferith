@@ -94,6 +94,27 @@ func TestMulCommutative(t *testing.T) {
 	}
 }
 
+func testMulAssociative(a Nat, b Nat, c Nat) bool {
+	var order1, order2 Nat
+	for _, x := range []uint{256, 128, 64, 32, 8} {
+		order1 = *order1.Mul(a, b, x)
+		order1.Mul(order1, c, x)
+		order2 = *order2.Mul(b, c, x)
+		order2.Mul(a, order2, x)
+		if order1.Cmp(order2) != 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func TestMulAssociative(t *testing.T) {
+	err := quick.Check(testMulAssociative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testMulOneIdentity(n Nat) bool {
 	var x, one Nat
 	one.SetUint64(1)
