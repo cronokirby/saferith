@@ -136,6 +136,27 @@ func TestMulOneIdentity(t *testing.T) {
 	}
 }
 
+func testModAndTruncationMatch(a Nat) bool {
+	var way1, way2, m, zero Nat
+	zero.SetUint64(0)
+	for _, x := range []uint{48, 32, 16, 8} {
+		way1.Add(a, zero, x)
+		m.SetUint64(1 << x)
+		way2.Mod(a, m)
+		if way1.Cmp(way2) != 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func TestModAndTruncationMatch(t *testing.T) {
+	err := quick.Check(testModAndTruncationMatch, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
