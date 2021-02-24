@@ -54,6 +54,27 @@ func TestAddCommutative(t *testing.T) {
 	}
 }
 
+func testAddAssociative(a Nat, b Nat, c Nat) bool {
+	var order1, order2 Nat
+	for _, x := range []uint{256, 128, 64, 32, 8} {
+		order1 = *order1.Add(a, b, x)
+		order1.Add(order1, c, x)
+		order2 = *order2.Add(b, c, x)
+		order2.Add(a, order2, x)
+		if order1.Cmp(order2) != 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func TestAddAssociative(t *testing.T) {
+	err := quick.Check(testAddAssociative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testMulCommutative(a Nat, b Nat) bool {
 	var aTimesB, bTimesA Nat
 	for _, x := range []uint{256, 128, 64, 32, 8} {
