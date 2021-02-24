@@ -185,6 +185,22 @@ func TestModAddCommutative(t *testing.T) {
 	}
 }
 
+func testModAddAssociative(a Nat, b Nat, c Nat, m Nat) bool {
+	var order1, order2 Nat
+	order1 = *order1.ModAdd(a, b, m)
+	order1.ModAdd(order1, c, m)
+	order2 = *order2.ModAdd(b, c, m)
+	order2.ModAdd(a, order2, m)
+	return order1.Cmp(order2) == 1
+}
+
+func TestModAddAssociative(t *testing.T) {
+	err := quick.Check(testModAddAssociative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
