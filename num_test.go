@@ -257,6 +257,24 @@ func TestModInverseMultiplication(t *testing.T) {
 	}
 }
 
+func testExpAddition(x Nat, a Nat, b Nat, m Nat) bool {
+	var expA, expB, aPlusB, way1, way2 Nat
+	expA.Exp(x, a, m)
+	expB.Exp(x, b, m)
+	// Enough bits to hold the full amount
+	aPlusB.Add(a, b, 129)
+	way1.ModMul(expA, expB, m)
+	way2.Exp(x, aPlusB, m)
+	return way1.Cmp(way2) == 1
+}
+
+func TestExpAddition(t *testing.T) {
+	err := quick.Check(testExpAddition, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
