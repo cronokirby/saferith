@@ -73,6 +73,27 @@ func TestMulCommutative(t *testing.T) {
 	}
 }
 
+func testMulOneIdentity(n Nat) bool {
+	var x, one Nat
+	one.SetUint64(1)
+	x.Mul(n, one, 128)
+	if n.Cmp(x) != 1 {
+		return false
+	}
+	x.Mul(one, n, 128)
+	if n.Cmp(x) != 1 {
+		return false
+	}
+	return true
+}
+
+func TestMulOneIdentity(t *testing.T) {
+	err := quick.Check(testMulOneIdentity, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
