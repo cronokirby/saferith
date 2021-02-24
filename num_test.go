@@ -171,6 +171,20 @@ func TestModIdempotent(t *testing.T) {
 	}
 }
 
+func testModAddCommutative(a Nat, b Nat, m Nat) bool {
+	var aPlusB, bPlusA Nat
+	aPlusB.ModAdd(a, b, m)
+	bPlusA.ModAdd(b, a, m)
+	return aPlusB.Cmp(bPlusA) == 1
+}
+
+func TestModAddCommutative(t *testing.T) {
+	err := quick.Check(testModAddCommutative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
