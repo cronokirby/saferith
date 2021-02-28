@@ -1,10 +1,6 @@
 package safenum
 
-import (
-	"math/big"
-)
-
-type word uint32
+import "math/big"
 
 // Nat represents an arbitrary sized natural number.
 //
@@ -15,8 +11,18 @@ type word uint32
 // The capacity of a number is usually inherited through whatever method was used to
 // create the number in the first place.
 type Nat struct {
-	// TODO: Don't rely on math/big
-	i big.Int
+	// TODO: Once we don't rely on math/big at all, use our own word type
+	limbs []big.Word
+}
+
+func fromInt(i *big.Int) Nat {
+	return Nat{limbs: i.Bits()}
+}
+
+func (z Nat) toInt() *big.Int {
+	var ret big.Int
+	ret.SetBits(z.limbs)
+	return &ret
 }
 
 // Mod calculates z <- x mod m
@@ -24,7 +30,7 @@ type Nat struct {
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x Nat, m Nat) *Nat {
 	// TODO: Use an actual implementation
-	z.i = *z.i.Mod(&x.i, &m.i)
+	*z = fromInt(z.toInt().Mod(x.toInt(), m.toInt()))
 	return z
 }
 
@@ -33,8 +39,8 @@ func (z *Nat) Mod(x Nat, m Nat) *Nat {
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) ModAdd(x Nat, y Nat, m Nat) *Nat {
 	// TODO: Use an actual implementation
-	z.i = *z.i.Add(&x.i, &y.i)
-	z.i = *z.i.Mod(&z.i, &m.i)
+	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
+	*z = fromInt(z.toInt().Mod(z.toInt(), m.toInt()))
 	return z
 }
 
@@ -43,11 +49,11 @@ func (z *Nat) ModAdd(x Nat, y Nat, m Nat) *Nat {
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
 	// TODO: Use an actual implementation
-	z.i = *z.i.Add(&x.i, &y.i)
-	bytes := z.i.Bytes()
+	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
+	bytes := z.toInt().Bytes()
 	numBytes := (cap + 8 - 1) >> 3
 	if int(numBytes) < len(bytes) {
-		z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+		*z = fromInt(z.toInt().SetBytes(bytes[len(bytes)-int(numBytes):]))
 	}
 	return z
 }
@@ -57,8 +63,8 @@ func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x Nat, y Nat, m Nat) *Nat {
 	// TODO: Use an actual implementation
-	z.i = *z.i.Mul(&x.i, &y.i)
-	z.i = *z.i.Mod(&z.i, &m.i)
+	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
+	*z = fromInt(z.toInt().Mod(z.toInt(), m.toInt()))
 	return z
 }
 
@@ -67,11 +73,11 @@ func (z *Nat) ModMul(x Nat, y Nat, m Nat) *Nat {
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
 	// TODO: Use an actual implementation
-	z.i = *z.i.Mul(&x.i, &y.i)
-	bytes := z.i.Bytes()
+	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
+	bytes := z.toInt().Bytes()
 	numBytes := (cap + 8 - 1) >> 3
 	if int(numBytes) < len(bytes) {
-		z.i.SetBytes(bytes[len(bytes)-int(numBytes):])
+		*z = fromInt(z.toInt().SetBytes(bytes[len(bytes)-int(numBytes):]))
 	}
 	return z
 }
@@ -81,7 +87,7 @@ func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x Nat, m Nat) *Nat {
 	// TODO: Use actual implementation
-	z.i = *z.i.ModInverse(&x.i, &m.i)
+	*z = fromInt(z.toInt().ModInverse(x.toInt(), m.toInt()))
 	return z
 }
 
@@ -89,7 +95,7 @@ func (z *Nat) ModInverse(x Nat, m Nat) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) Exp(x Nat, y Nat, m Nat) *Nat {
-	z.i = *z.i.Exp(&x.i, &y.i, &m.i)
+	*z = fromInt(z.toInt().Exp(x.toInt(), y.toInt(), m.toInt()))
 	return z
 }
 
@@ -101,7 +107,7 @@ func (z *Nat) Exp(x Nat, y Nat, m Nat) *Nat {
 // Cmp compares two natural numbers, returning 1 if they're equal and 0 otherwise
 func (z Nat) Cmp(x Nat) int {
 	// TODO: Use actual implementation
-	ret := z.i.Cmp(&x.i)
+	ret := z.toInt().Cmp(x.toInt())
 	if ret == 0 {
 		return 1
 	}
@@ -115,7 +121,7 @@ func (z Nat) Cmp(x Nat) int {
 //
 // This will panic if the buffer's length cannot accomodate the capacity of the number
 func (z *Nat) FillBytes(buf []byte) []byte {
-	z.i.FillBytes(buf)
+	z.toInt().FillBytes(buf)
 	return buf
 }
 
@@ -125,7 +131,7 @@ func (z *Nat) FillBytes(buf []byte) []byte {
 // the capacity of the number returned, and thus the resulting timings for operations
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
-	z.i.SetBytes(buf)
+	*z = fromInt(z.toInt().SetBytes(buf))
 	return z
 }
 
@@ -134,6 +140,6 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 // This will have the exact same capacity as a 64 bit number
 func (z *Nat) SetUint64(x uint64) *Nat {
 	// TODO: Use an actual implementation
-	z.i.SetUint64(x)
+	*z = fromInt(z.toInt().SetUint64(x))
 	return z
 }
