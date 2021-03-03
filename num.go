@@ -28,7 +28,7 @@ func (z Nat) toInt() *big.Int {
 // Mod calculates z <- x mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus.
-func (z *Nat) Mod(x Nat, m Nat) *Nat {
+func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Mod(x.toInt(), m.toInt()))
 	return z
@@ -37,7 +37,7 @@ func (z *Nat) Mod(x Nat, m Nat) *Nat {
 // ModAdd calculates z <- x + y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus.
-func (z *Nat) ModAdd(x Nat, y Nat, m Nat) *Nat {
+func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
 	*z = fromInt(z.toInt().Mod(z.toInt(), m.toInt()))
@@ -47,7 +47,7 @@ func (z *Nat) ModAdd(x Nat, y Nat, m Nat) *Nat {
 // Add calculates z <- x + y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
-func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
+func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
 	bytes := z.toInt().Bytes()
@@ -61,7 +61,7 @@ func (z *Nat) Add(x Nat, y Nat, cap uint) *Nat {
 // ModMul calculates z <- x * y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) ModMul(x Nat, y Nat, m Nat) *Nat {
+func (z *Nat) ModMul(x *Nat, y *Nat, m *Nat) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
 	*z = fromInt(z.toInt().Mod(z.toInt(), m.toInt()))
@@ -71,7 +71,7 @@ func (z *Nat) ModMul(x Nat, y Nat, m Nat) *Nat {
 // Mul calculates z <- x * y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
-func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
+func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
 	bytes := z.toInt().Bytes()
@@ -85,7 +85,7 @@ func (z *Nat) Mul(x Nat, y Nat, cap uint) *Nat {
 // ModInverse calculates z <- x^-1 mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) ModInverse(x Nat, m Nat) *Nat {
+func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	// TODO: Use actual implementation
 	*z = fromInt(z.toInt().ModInverse(x.toInt(), m.toInt()))
 	return z
@@ -94,13 +94,13 @@ func (z *Nat) ModInverse(x Nat, m Nat) *Nat {
 // Exp calculates z <- x^y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) Exp(x Nat, y Nat, m Nat) *Nat {
+func (z *Nat) Exp(x *Nat, y *Nat, m *Nat) *Nat {
 	*z = fromInt(z.toInt().Exp(x.toInt(), y.toInt(), m.toInt()))
 	return z
 }
 
 // CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
-func (z Nat) CmpEq(x Nat) int {
+func (z *Nat) CmpEq(x *Nat) int {
 	// TODO: Use actual implementation
 	ret := z.toInt().Cmp(x.toInt())
 	if ret == 0 {
