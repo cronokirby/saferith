@@ -1,6 +1,8 @@
 package safenum
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // Nat represents an arbitrary sized natural number.
 //
@@ -12,16 +14,18 @@ import "math/big"
 // create the number in the first place.
 type Nat struct {
 	// TODO: Once we don't rely on math/big at all, use our own word type
-	limbs []big.Word
+	limbs []uint32
 }
 
 func fromInt(i *big.Int) Nat {
-	return Nat{limbs: i.Bits()}
+	var n Nat
+	n.SetBytes(i.Bytes())
+	return n
 }
 
 func (z Nat) toInt() *big.Int {
 	var ret big.Int
-	ret.SetBits(z.limbs)
+	ret.SetBytes(z.Bytes())
 	return &ret
 }
 
@@ -120,14 +124,90 @@ func (z *Nat) FillBytes(buf []byte) []byte {
 	return buf
 }
 
+func extendFront(buf []byte, to int) []byte {
+	// TODO: Scrutinize this
+	if len(buf) >= to {
+		return buf
+	}
+
+	shift := to - len(buf)
+	if cap(buf) < to {
+		newBuf := make([]byte, to)
+		copy(newBuf[shift:], buf)
+		return newBuf
+	}
+
+	newBuf := buf[:to]
+	copy(newBuf[shift:], buf)
+	for i := 0; i < shift; i++ {
+		newBuf[i] = 0
+	}
+	return newBuf
+}
+
+func (z *Nat) ensureLimbCapacity(size int) {
+	if cap(z.limbs) < size {
+		newLimbs := make([]uint32, size)
+		copy(newLimbs, z.limbs)
+		z.limbs = newLimbs
+	}
+}
+
+func (z *Nat) resizedLimbs(size int) []uint32 {
+	z.ensureLimbCapacity(size)
+	return z.limbs[:size]
+}
+
 // SetBytes interprets a number in big-endian format, stores it in z, and returns z.
 //
 // The exact length of the buffer must be public information! This length also dictates
 // the capacity of the number returned, and thus the resulting timings for operations
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
-	*z = fromInt(z.toInt().SetBytes(buf))
+	// TODO: Scrutinize the implementation a bit more here
+	// We pad the front so that we have a multiple of 4
+	// Padding the front is adding extra zeros to the BE representation
+	necessary := (len(buf) + 3) &^ 0b11
+	buf = extendFront(buf, necessary)
+	limbCount := necessary >> 2
+	z.limbs = z.resizedLimbs(limbCount)
+	j := necessary
+	for i := 0; i < limbCount; i++ {
+		z.limbs[i] = 0
+		j--
+		z.limbs[i] |= uint32(buf[j])
+		j--
+		z.limbs[i] |= uint32(buf[j]) << 8
+		j--
+		z.limbs[i] |= uint32(buf[j]) << 16
+		j--
+		z.limbs[i] |= uint32(buf[j]) << 24
+	}
 	return z
+}
+
+// Bytes creates a slice containing the contents of this Nat, in big endian
+//
+// This will always fill the output byte slice based on the announced length of this Nat.
+func (z *Nat) Bytes() []byte {
+	length := len(z.limbs) << 2
+	out := make([]byte, length)
+	i := length
+	// LEAK: Number of limbs
+	// OK: The number of limbs is public
+	// LEAK: The addresses touched in the out array
+	// OK: Every member of out is touched
+	for _, x := range z.limbs {
+		i--
+		out[i] = byte(x)
+		i--
+		out[i] = byte(x >> 8)
+		i--
+		out[i] = byte(x >> 16)
+		i--
+		out[i] = byte(x >> 24)
+	}
+	return out
 }
 
 // SetUint64 sets z to x, and returns z

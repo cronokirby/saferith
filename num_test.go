@@ -398,7 +398,7 @@ func TestSetBytesExamples(t *testing.T) {
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
-	x.SetBytes([]byte{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF})
+	x.SetBytes([]byte{0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF})
 	z.SetUint64(0xAABBCCDDEEFF)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
@@ -413,5 +413,15 @@ func TestFillBytesExamples(t *testing.T) {
 	x.FillBytes(buf)
 	if !bytes.Equal(expected, buf) {
 		t.Errorf("%+v != %+v", expected, buf)
+	}
+}
+
+func TestBytesExamples(t *testing.T) {
+	var x Nat
+	expected := []byte{0x11, 0x22, 0x33, 0x44, 0xAA, 0xBB, 0xCC, 0xDD}
+	x.SetBytes(expected)
+	out := x.Bytes()
+	if !bytes.Equal(expected, out) {
+		t.Errorf("%+v != %+v", expected, out)
 	}
 }
