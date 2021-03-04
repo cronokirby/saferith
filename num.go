@@ -157,6 +157,13 @@ func extendFront(buf []byte, to int) []byte {
 	return newBuf
 }
 
+// ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
+//
+// This will modify the slice contained inside the natural, but won't change the size of
+// the slice, so it doesn't affect the value of the natural.
+//
+// LEAK: Probably the current number of limbs, and size
+// OK: both of these should be public
 func (z *Nat) ensureLimbCapacity(size int) {
 	if cap(z.limbs) < size {
 		newLimbs := make([]Word, size)
@@ -165,6 +172,10 @@ func (z *Nat) ensureLimbCapacity(size int) {
 	}
 }
 
+// resizedLimbs returns a slice of limbs with size lengths
+//
+// LEAK: the current number of limbs, and size
+// OK: both are public
 func (z *Nat) resizedLimbs(size int) []Word {
 	z.ensureLimbCapacity(size)
 	return z.limbs[:size]
@@ -176,7 +187,6 @@ func (z *Nat) resizedLimbs(size int) []Word {
 // the capacity of the number returned, and thus the resulting timings for operations
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
-	// TODO: Scrutinize the implementation a bit more here
 	// We pad the front so that we have a multiple of _S
 	// Padding the front is adding extra zeros to the BE representation
 	necessary := (len(buf) + _S - 1) &^ (_S - 1)
@@ -184,11 +194,14 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 	limbCount := necessary / _S
 	z.limbs = z.resizedLimbs(limbCount)
 	j := necessary
+	// LEAK: The number of limbs
+	// OK: This is public information
 	for i := 0; i < limbCount; i++ {
 		z.limbs[i] = 0
+		j -= _S
 		for k := 0; k < _S; k++ {
-			j--
-			z.limbs[i] |= Word(buf[j]) << (k << 3)
+			z.limbs[i] <<= 8
+			z.limbs[i] |= Word(buf[j+k])
 		}
 	}
 	return z
