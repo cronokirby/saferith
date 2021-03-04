@@ -136,20 +136,26 @@ func (z *Nat) FillBytes(buf []byte) []byte {
 	return buf
 }
 
-func extendFront(buf []byte, to int) []byte {
-	// TODO: Scrutinize this
-	if len(buf) >= to {
+// extendFront pads the front of a slice to a certain size
+//
+// LEAK: the length of the buffer, size
+func extendFront(buf []byte, size int) []byte {
+	// LEAK: the length of the buffer
+	if len(buf) >= size {
 		return buf
 	}
 
-	shift := to - len(buf)
-	if cap(buf) < to {
-		newBuf := make([]byte, to)
+	shift := size - len(buf)
+	// LEAK: the capacity of the buffer
+	// OK: assuming the capacity of the buffer is related to the length,
+	// and the length is ok to leak
+	if cap(buf) < size {
+		newBuf := make([]byte, size)
 		copy(newBuf[shift:], buf)
 		return newBuf
 	}
 
-	newBuf := buf[:to]
+	newBuf := buf[:size]
 	copy(newBuf[shift:], buf)
 	for i := 0; i < shift; i++ {
 		newBuf[i] = 0
@@ -190,8 +196,12 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 	// We pad the front so that we have a multiple of _S
 	// Padding the front is adding extra zeros to the BE representation
 	necessary := (len(buf) + _S - 1) &^ (_S - 1)
+	// LEAK: the size of buf
+	// OK: this is public information
 	buf = extendFront(buf, necessary)
 	limbCount := necessary / _S
+	// LEAK: limbCount
+	// OK: this is derived from the length of buf, which is public
 	z.limbs = z.resizedLimbs(limbCount)
 	j := necessary
 	// LEAK: The number of limbs
