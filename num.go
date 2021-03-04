@@ -2,13 +2,19 @@ package safenum
 
 import (
 	"math/big"
+	"math/bits"
 )
 
 // NOTE: We define a type alias for our limbs, to make integration with
 // big's internal routines easier later.
 
 // Word represents the type of limbs of a natural number
-type Word = uint32
+type Word = uint
+
+const (
+	// Word size in bytes
+	_S = bits.UintSize / 8
+)
 
 // Nat represents an arbitrary sized natural number.
 //
@@ -61,7 +67,7 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
 	bytes := z.toInt().Bytes()
-	numBytes := (cap + 8 - 1) >> 3
+	numBytes := (cap + 8 - 1) / 8
 	if int(numBytes) < len(bytes) {
 		*z = fromInt(z.toInt().SetBytes(bytes[len(bytes)-int(numBytes):]))
 	}
@@ -85,7 +91,7 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
 	bytes := z.toInt().Bytes()
-	numBytes := (cap + 8 - 1) >> 3
+	numBytes := (cap + 8 - 1) / 8
 	if int(numBytes) < len(bytes) {
 		*z = fromInt(z.toInt().SetBytes(bytes[len(bytes)-int(numBytes):]))
 	}
@@ -153,13 +159,13 @@ func extendFront(buf []byte, to int) []byte {
 
 func (z *Nat) ensureLimbCapacity(size int) {
 	if cap(z.limbs) < size {
-		newLimbs := make([]uint32, size)
+		newLimbs := make([]Word, size)
 		copy(newLimbs, z.limbs)
 		z.limbs = newLimbs
 	}
 }
 
-func (z *Nat) resizedLimbs(size int) []uint32 {
+func (z *Nat) resizedLimbs(size int) []Word {
 	z.ensureLimbCapacity(size)
 	return z.limbs[:size]
 }
@@ -171,23 +177,19 @@ func (z *Nat) resizedLimbs(size int) []uint32 {
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
 	// TODO: Scrutinize the implementation a bit more here
-	// We pad the front so that we have a multiple of 4
+	// We pad the front so that we have a multiple of _S
 	// Padding the front is adding extra zeros to the BE representation
-	necessary := (len(buf) + 3) &^ 0b11
+	necessary := (len(buf) + _S - 1) &^ (_S - 1)
 	buf = extendFront(buf, necessary)
-	limbCount := necessary >> 2
+	limbCount := necessary / _S
 	z.limbs = z.resizedLimbs(limbCount)
 	j := necessary
 	for i := 0; i < limbCount; i++ {
 		z.limbs[i] = 0
-		j--
-		z.limbs[i] |= uint32(buf[j])
-		j--
-		z.limbs[i] |= uint32(buf[j]) << 8
-		j--
-		z.limbs[i] |= uint32(buf[j]) << 16
-		j--
-		z.limbs[i] |= uint32(buf[j]) << 24
+		for k := 0; k < _S; k++ {
+			j--
+			z.limbs[i] |= Word(buf[j]) << (k << 3)
+		}
 	}
 	return z
 }
@@ -196,7 +198,7 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 //
 // This will always fill the output byte slice based on the announced length of this Nat.
 func (z *Nat) Bytes() []byte {
-	length := len(z.limbs) << 2
+	length := len(z.limbs) * _S
 	out := make([]byte, length)
 	i := length
 	// LEAK: Number of limbs
@@ -204,14 +206,12 @@ func (z *Nat) Bytes() []byte {
 	// LEAK: The addresses touched in the out array
 	// OK: Every member of out is touched
 	for _, x := range z.limbs {
-		i--
-		out[i] = byte(x)
-		i--
-		out[i] = byte(x >> 8)
-		i--
-		out[i] = byte(x >> 16)
-		i--
-		out[i] = byte(x >> 24)
+		y := x
+		for j := 0; j < _S; j++ {
+			i--
+			out[i] = byte(y)
+			y >>= 8
+		}
 	}
 	return out
 }
