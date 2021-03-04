@@ -4,6 +4,12 @@ import (
 	"math/big"
 )
 
+// NOTE: We define a type alias for our limbs, to make integration with
+// big's internal routines easier later.
+
+// Word represents the type of limbs of a natural number
+type Word = uint32
+
 // Nat represents an arbitrary sized natural number.
 //
 // Different methods on Nats will talk about a "capacity". The capacity represents
@@ -14,7 +20,7 @@ import (
 // create the number in the first place.
 type Nat struct {
 	// TODO: Once we don't rely on math/big at all, use our own word type
-	limbs []uint32
+	limbs []Word
 }
 
 func fromInt(i *big.Int) Nat {
