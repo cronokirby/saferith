@@ -148,14 +148,34 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Nat) *Nat {
 	return z
 }
 
+func constantTimeWordEq(x, y Word) int {
+	return int((uint64(x^y) - 1) >> 63)
+}
+
 // CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
 func (z *Nat) CmpEq(x *Nat) int {
-	// TODO: Use actual implementation
-	ret := z.toInt().Cmp(x.toInt())
-	if ret == 0 {
-		return 1
+	// Rough Idea: Resize both slices to the maximum length, then compare
+	// using that length
+
+	// LEAK: z's length, x's length, the maximum
+	// OK: These should be public information
+	size := len(x.limbs)
+	zLen := len(z.limbs)
+	if zLen > size {
+		size = zLen
 	}
-	return 0
+	z.ensureLimbCapacity(size)
+	x.ensureLimbCapacity(size)
+	zLimbs := z.resizedLimbs(size)
+	xLimbs := x.resizedLimbs(size)
+
+	var v Word
+	// LEAK: size
+	// OK: this was calculated using the length of x and z, both public
+	for i := 0; i < size; i++ {
+		v |= zLimbs[i] ^ xLimbs[i]
+	}
+	return constantTimeWordEq(v, 0)
 }
 
 // FillBytes writes out the big endian bytes of a natural number.
