@@ -91,9 +91,6 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	limbCount := int((cap + _W - 1) / _W)
-	x.ensureLimbCapacity(limbCount)
-	y.ensureLimbCapacity(limbCount)
-	z.ensureLimbCapacity(limbCount)
 	xLimbs := x.resizedLimbs(limbCount)
 	yLimbs := y.resizedLimbs(limbCount)
 	z.limbs = z.resizedLimbs(limbCount)
@@ -164,8 +161,6 @@ func (z *Nat) CmpEq(x *Nat) int {
 	if zLen > size {
 		size = zLen
 	}
-	z.ensureLimbCapacity(size)
-	x.ensureLimbCapacity(size)
 	zLimbs := z.resizedLimbs(size)
 	xLimbs := x.resizedLimbs(size)
 
