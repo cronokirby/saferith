@@ -272,7 +272,19 @@ func (z *Nat) Bytes() []byte {
 //
 // This will have the exact same capacity as a 64 bit number
 func (z *Nat) SetUint64(x uint64) *Nat {
-	// TODO: Use an actual implementation
-	*z = fromInt(z.toInt().SetUint64(x))
+	// LEAK: Whether or not _W == 64
+	// OK: This is known in advance based on the architecture
+	if _W == 64 {
+		z.limbs = z.resizedLimbs(1)
+		z.limbs[0] = Word(x)
+	} else {
+		// This works since _W is a power of 2
+		limbCount := 64 / _W
+		z.limbs = z.resizedLimbs(limbCount)
+		for i := 0; i < limbCount; i++ {
+			z.limbs[i] = Word(x)
+			x >>= _W
+		}
+	}
 	return z
 }
