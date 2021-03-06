@@ -12,8 +12,10 @@ import (
 type Word = uint
 
 const (
+	// Word size in bits
+	_W = bits.UintSize
 	// Word size in bytes
-	_S = bits.UintSize / 8
+	_S = _W / 8
 )
 
 // Nat represents an arbitrary sized natural number.
