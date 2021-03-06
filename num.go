@@ -31,6 +31,30 @@ type Nat struct {
 	limbs []Word
 }
 
+// ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
+//
+// This will modify the slice contained inside the natural, but won't change the size of
+// the slice, so it doesn't affect the value of the natural.
+//
+// LEAK: Probably the current number of limbs, and size
+// OK: both of these should be public
+func (z *Nat) ensureLimbCapacity(size int) {
+	if cap(z.limbs) < size {
+		newLimbs := make([]Word, size)
+		copy(newLimbs, z.limbs)
+		z.limbs = newLimbs
+	}
+}
+
+// resizedLimbs returns a slice of limbs with size lengths
+//
+// LEAK: the current number of limbs, and size
+// OK: both are public
+func (z *Nat) resizedLimbs(size int) []Word {
+	z.ensureLimbCapacity(size)
+	return z.limbs[:size]
+}
+
 func fromInt(i *big.Int) Nat {
 	var n Nat
 	n.SetBytes(i.Bytes())
@@ -66,13 +90,20 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
-	// TODO: Use an actual implementation
-	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
-	bytes := z.toInt().Bytes()
-	numBytes := (cap + 8 - 1) / 8
-	if int(numBytes) < len(bytes) {
-		*z = fromInt(z.toInt().SetBytes(bytes[len(bytes)-int(numBytes):]))
-	}
+	limbCount := int((cap + _W - 1) / _W)
+	x.ensureLimbCapacity(limbCount)
+	y.ensureLimbCapacity(limbCount)
+	z.ensureLimbCapacity(limbCount)
+	xLimbs := x.resizedLimbs(limbCount)
+	yLimbs := y.resizedLimbs(limbCount)
+	z.limbs = z.resizedLimbs(limbCount)
+	addVV(z.limbs, xLimbs, yLimbs)
+	// Now, we need to truncate the last limb
+	bitsToKeep := cap % _W
+	mask := ^(^Word(0) << bitsToKeep)
+	// LEAK: the size of z (since we're making an extra access at the end)
+	// OK: this is public information, since cap is public
+	z.limbs[len(z.limbs)-1] &= mask
 	return z
 }
 
@@ -163,30 +194,6 @@ func extendFront(buf []byte, size int) []byte {
 		newBuf[i] = 0
 	}
 	return newBuf
-}
-
-// ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
-//
-// This will modify the slice contained inside the natural, but won't change the size of
-// the slice, so it doesn't affect the value of the natural.
-//
-// LEAK: Probably the current number of limbs, and size
-// OK: both of these should be public
-func (z *Nat) ensureLimbCapacity(size int) {
-	if cap(z.limbs) < size {
-		newLimbs := make([]Word, size)
-		copy(newLimbs, z.limbs)
-		z.limbs = newLimbs
-	}
-}
-
-// resizedLimbs returns a slice of limbs with size lengths
-//
-// LEAK: the current number of limbs, and size
-// OK: both are public
-func (z *Nat) resizedLimbs(size int) []Word {
-	z.ensureLimbCapacity(size)
-	return z.limbs[:size]
 }
 
 // SetBytes interprets a number in big-endian format, stores it in z, and returns z.
