@@ -27,11 +27,25 @@ import "math/bits"
 // Add two slices of Word, returning the carry you end up with
 //
 // LEAK: The lengths of x, y, and z
-// OK: This should be public information
 func addVV(z, x, y []Word) (c Word) {
 	// The comment near the top of this file discusses this for loop condition.
 	for i := 0; i < len(z) && i < len(x) && i < len(y); i++ {
 		zi, cc := bits.Add(uint(x[i]), uint(y[i]), uint(c))
+		z[i] = Word(zi)
+		c = Word(cc)
+	}
+	return
+}
+
+// Subtract one slice of Word from another, returning the carry you end up with
+//
+// The carry is 1 if the result underflows, so to speak
+//
+// LEAK: The lengths of x, y, and z
+func subVV(z, x, y []Word) (c Word) {
+	// The comment near the top of this file discusses this for loop condition.
+	for i := 0; i < len(z) && i < len(x) && i < len(y); i++ {
+		zi, cc := bits.Sub(uint(x[i]), uint(y[i]), uint(c))
 		z[i] = Word(zi)
 		c = Word(cc)
 	}
