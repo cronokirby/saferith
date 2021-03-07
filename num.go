@@ -73,6 +73,8 @@ func (z Nat) toInt() *big.Int {
 func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
 	// TODO: Use an actual implementation
 	*z = fromInt(z.toInt().Mod(x.toInt(), m.toInt()))
+	// This won't be necessary with a real implementation
+	z.limbs = z.resizedLimbs(len(m.limbs))
 	return z
 }
 
@@ -80,9 +82,42 @@ func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
-	// TODO: Use an actual implementation
-	*z = fromInt(z.toInt().Add(x.toInt(), y.toInt()))
-	*z = fromInt(z.toInt().Mod(z.toInt(), m.toInt()))
+	var xModM, yModM Nat
+	// This is necessary for the correctness of the algorithm, since
+	// we don't assume that x and y are in range.
+	// Furthermore, we can now assume that x and y have the same number
+	// of limbs as m
+	xModM.Mod(x, m)
+	yModM.Mod(y, m)
+
+	// The only thing we have to resize is z, everything else has m's length
+	limbCount := len(m.limbs)
+	z.limbs = z.resizedLimbs(limbCount)
+
+	// LEAK: limbCount
+	// OK: the size of the modulus should be public information
+	addCarry := addVV(z.limbs, xModM.limbs, yModM.limbs)
+	// I don't think we can avoid using an extra scratch buffer
+	subResult := make([]Word, limbCount)
+	// LEAK: limbCount
+	// OK: see above
+	subCarry := subVV(subResult, z.limbs, m.limbs)
+	// Three cases are possible:
+	//
+	// addCarry, subCarry = 0 -> subResult
+	// 	 we didn't overflow our buffer, but our result was big
+	//   enough to subtract m without underflow, so it was larger than m
+	// addCarry, subCarry = 1 -> subResult
+	//   we overflowed the buffer, and the subtraction of m is correct,
+	//   because our result only looks too small because of the missing carry bit
+	// addCarry = 0, subCarry = 1 -> addResult
+	// 	 we didn't overflow our buffer, and the subtraction of m is wrong,
+	//   because our result was already smaller than m
+	// The other case is impossible, because it would mean we have a result big
+	// enough to both overflow the addition by at least m. But, we made sure that
+	// x and y are at most m - 1, so this isn't possible.
+	selectSub := constantTimeWordEq(addCarry, subCarry)
+	constantTimeWordCopy(selectSub, z.limbs, subResult)
 	return z
 }
 
@@ -147,6 +182,21 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Nat) *Nat {
 
 func constantTimeWordEq(x, y Word) int {
 	return int((uint64(x^y) - 1) >> 63)
+}
+
+// constantTimeWordCopy copies x into y, if v == 1, otherwise does nothing
+//
+// Both slices must have the same length.
+//
+// LEAK: the length of the slices
+//
+// Otherwise, which branch was taken isn't leaked
+func constantTimeWordCopy(v int, x, y []Word) {
+	xmask := Word(v - 1)
+	ymask := Word(^(v - 1))
+	for i := 0; i < len(x); i++ {
+		x[i] = (x[i] & xmask) | (y[i] & ymask)
+	}
 }
 
 // CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
