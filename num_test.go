@@ -358,13 +358,13 @@ func TestModMulExamples(t *testing.T) {
 }
 
 func TestModExamples(t *testing.T) {
-	var x, z, m Nat
+	var x, one, m Nat
 	x.SetUint64(40)
 	m.SetUint64(13)
-	x = *x.Mod(&x, &m)
-	z.SetUint64(1)
-	if x.CmpEq(&z) != 1 {
-		t.Errorf("%+v != %+v", x, z)
+	x.Mod(&x, &m)
+	one.SetUint64(1)
+	if x.CmpEq(&one) != 1 {
+		t.Errorf("%+v != %+v", x, one)
 	}
 }
 

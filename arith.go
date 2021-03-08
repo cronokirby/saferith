@@ -51,3 +51,29 @@ func subVV(z, x, y []Word) (c Word) {
 	}
 	return
 }
+
+// Shift x by s, outputting the result in z
+//
+// The carry is 1 if bits shifted out were not all 0
+//
+// The length of z and x must match
+//
+// LEAK: the length of z and x, whether or not s is 0
+func shlVU(z, x []Word, s uint) (c Word) {
+	if s == 0 {
+		copy(z, x)
+		return
+	}
+	if len(z) == 0 {
+		return
+	}
+	s &= _W - 1 // hint to the compiler that shifts by s don't need guard code
+	ŝ := _W - s
+	ŝ &= _W - 1 // ditto
+	c = x[len(z)-1] >> ŝ
+	for i := len(z) - 1; i > 0; i-- {
+		z[i] = x[i]<<s | x[i-1]>>ŝ
+	}
+	z[0] = x[0] << s
+	return
+}

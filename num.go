@@ -71,10 +71,25 @@ func (z Nat) toInt() *big.Int {
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
-	// TODO: Use an actual implementation
-	*z = fromInt(z.toInt().Mod(x.toInt(), m.toInt()))
-	// This won't be necessary with a real implementation
-	z.limbs = z.resizedLimbs(len(m.limbs))
+	limbCount := len(m.limbs)
+	// We need two buffers, because of aliasing
+	subScratch := make([]Word, limbCount)
+	rLimbs := make([]Word, limbCount)
+	// LEAK: the length of x
+	// OK: this should be public
+	for i := len(x.limbs) - 1; i >= 0; i-- {
+		limb := x.limbs[i]
+		for j := _W - 1; j >= 0; j-- {
+			xi := (limb >> j) & 1
+			shiftCarry := shlVU(rLimbs, rLimbs, 1)
+			rLimbs[0] |= xi
+			subCarry := subVV(subScratch, rLimbs, m.limbs)
+			selectSub := constantTimeWordEq(shiftCarry, subCarry)
+			constantTimeWordCopy(selectSub, rLimbs, subScratch)
+		}
+	}
+	// Now we can safely swap things out
+	z.limbs = rLimbs
 	return z
 }
 
