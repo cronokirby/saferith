@@ -40,7 +40,7 @@ type Nat struct {
 // OK: both of these should be public
 func (z *Nat) ensureLimbCapacity(size int) {
 	if cap(z.limbs) < size {
-		newLimbs := make([]Word, size)
+		newLimbs := make([]Word, len(z.limbs), size)
 		copy(newLimbs, z.limbs)
 		z.limbs = newLimbs
 	}
@@ -205,7 +205,27 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) Exp(x *Nat, y *Nat, m *Nat) *Nat {
-	*z = fromInt(z.toInt().Exp(x.toInt(), y.toInt(), m.toInt()))
+	limbCount := len(m.limbs)
+	var mulScratch, xsquared, zScratch Nat
+	xsquared.limbs = make([]Word, limbCount)
+	zScratch.limbs = make([]Word, limbCount)
+	zScratch.limbs[0] = 1
+	// LEAK: limbCount, x's length
+	// OK: both should be public information
+	copy(xsquared.limbs, x.limbs)
+	// LEAK: y's length
+	// OK: this should be public
+	for i := 0; i < len(y.limbs); i++ {
+		yi := y.limbs[i]
+		for j := 0; j < _W; j++ {
+			mulScratch.ModMul(&zScratch, &xsquared, m)
+			selectMultiply := int(yi & 1)
+			constantTimeWordCopy(selectMultiply, zScratch.limbs, mulScratch.limbs)
+			xsquared.ModMul(&xsquared, &xsquared, m)
+			yi >>= 1
+		}
+	}
+	z.limbs = zScratch.limbs
 	return z
 }
 
@@ -213,7 +233,7 @@ func constantTimeWordEq(x, y Word) int {
 	return int((uint64(x^y) - 1) >> 63)
 }
 
-// constantTimeWordCopy copies x into y, if v == 1, otherwise does nothing
+// constantTimeWordCopy copies y into x, if v == 1, otherwise does nothing
 //
 // Both slices must have the same length.
 //
