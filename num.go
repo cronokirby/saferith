@@ -158,9 +158,10 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x *Nat, y *Nat, m *Nat) *Nat {
-	// TODO: Use an actual implementation
-	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
-	*z = fromInt(z.toInt().Mod(z.toInt(), m.toInt()))
+	limbCount := len(x.limbs) + len(y.limbs)
+	cap := _W * limbCount
+	z.Mul(x, y, uint(cap))
+	z.Mod(z, m)
 	return z
 }
 
@@ -180,7 +181,8 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 		addMulVVW(zLimbs[i:], xLimbs, yLimbs[i])
 	}
 	// Now, we need to truncate the last limb
-	bitsToKeep := cap % _W
+	extraBits := uint(_W*limbCount) - cap
+	bitsToKeep := _W - extraBits
 	mask := ^(^Word(0) << bitsToKeep)
 	// LEAK: the size of z (since we're making an extra access at the end)
 	// OK: this is public information, since cap is public

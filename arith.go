@@ -78,7 +78,7 @@ func shlVU(z, x []Word, s uint) (c Word) {
 	return
 }
 
-func mulAddWWW_g(x, y, c Word) (z1, z0 Word) {
+func mulAddWWW(x, y, c Word) (z1, z0 Word) {
 	hi, lo := bits.Mul(uint(x), uint(y))
 	var cc uint
 	lo, cc = bits.Add(lo, uint(c), 0)
@@ -91,7 +91,7 @@ func mulAddWWW_g(x, y, c Word) (z1, z0 Word) {
 func addMulVVW(z, x []Word, y Word) (c Word) {
 	// The comment near the top of this file discusses this for loop condition.
 	for i := 0; i < len(z) && i < len(x); i++ {
-		z1, z0 := mulAddWWW_g(x[i], y, z[i])
+		z1, z0 := mulAddWWW(x[i], y, z[i])
 		lo, cc := bits.Add(uint(z0), uint(c), 0)
 		c, z[i] = Word(cc), Word(lo)
 		c += z1
