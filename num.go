@@ -168,13 +168,25 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Nat) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
-	// TODO: Use an actual implementation
-	*z = fromInt(z.toInt().Mul(x.toInt(), y.toInt()))
-	bytes := z.toInt().Bytes()
-	numBytes := (cap + 8 - 1) / 8
-	if int(numBytes) < len(bytes) {
-		*z = fromInt(z.toInt().SetBytes(bytes[len(bytes)-int(numBytes):]))
+	limbCount := int((cap + _W - 1) / _W)
+	// Since we neex to set z to zero, we have no choice to use a new buffer,
+	// because we allow z to alias either of the arguments
+	zLimbs := make([]Word, limbCount)
+	xLimbs := x.resizedLimbs(limbCount)
+	yLimbs := y.resizedLimbs(limbCount)
+	// LEAK: limbCount
+	// OK: the capacity is public, or should be
+	for i := 0; i < limbCount; i++ {
+		addMulVVW(zLimbs[i:], xLimbs, yLimbs[i])
 	}
+	// Now, we need to truncate the last limb
+	bitsToKeep := cap % _W
+	mask := ^(^Word(0) << bitsToKeep)
+	// LEAK: the size of z (since we're making an extra access at the end)
+	// OK: this is public information, since cap is public
+	zLimbs[len(zLimbs)-1] &= mask
+	// Now we can write over
+	z.limbs = zLimbs
 	return z
 }
 
