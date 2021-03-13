@@ -54,7 +54,7 @@ func subVV(z, x, y []Word) (c Word) {
 
 // Shift x by s, outputting the result in z
 //
-// The carry is 1 if bits shifted out were not all 0
+// The carry consists of all the bits that were shifted out
 //
 // The length of z and x must match
 //
@@ -75,6 +75,34 @@ func shlVU(z, x []Word, s uint) (c Word) {
 		z[i] = x[i]<<s | x[i-1]>>ŝ
 	}
 	z[0] = x[0] << s
+	return
+}
+
+// Perform a logical right shift by s bits, from x into z
+//
+// The carry consists of the bits that were shifted out, but adjusted
+// by _W - s bits to the left. Shifting right by _W - s can get the bits
+// as they were in their original position.
+//
+// The length of z and x must match
+//
+// LEAK: the length of z and x, whether or not s is 0
+func shrVU_g(z, x []Word, s uint) (c Word) {
+	if s == 0 {
+		copy(z, x)
+		return
+	}
+	if len(z) == 0 {
+		return
+	}
+	s &= _W - 1 // hint to the compiler that shifts by s don't need guard code
+	ŝ := _W - s
+	ŝ &= _W - 1 // ditto
+	c = x[0] << ŝ
+	for i := 0; i < len(z)-1; i++ {
+		z[i] = x[i]>>s | x[i+1]<<ŝ
+	}
+	z[len(z)-1] = x[len(z)-1] >> s
 	return
 }
 

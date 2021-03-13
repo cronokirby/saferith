@@ -196,7 +196,21 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
-	// TODO: Use actual implementation
+	/*
+		limbCount := len(m.limbs)
+		var a, b, u, v Nat
+		a.Mod(x, m)
+		b.limbs = make([]Word, limbCount)
+		copy(b.limbs, m.limbs)
+		u.limbs = make([]Word, limbCount)
+		u.limbs[0] = 1
+		v.limbs = make([]Word, limbCount)
+
+		for a.CmpEq(&b) != 1 {
+
+		}
+	*/
+
 	*z = fromInt(z.toInt().ModInverse(x.toInt(), m.toInt()))
 	return z
 }
