@@ -194,21 +194,32 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 
 // ModInverse calculates z <- x^-1 mod m
 //
+// This will produce nonsense if the modulus is even.
+//
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	limbCount := len(m.limbs)
 
+	// aHalf <- a / 2
+	// aMinusBHalf <- (a - b) / 2
 	var a, aHalf, aMinusBHalf Nat
 	a.Mod(x, m)
 	aHalf.limbs = make([]Word, limbCount)
 	aMinusBHalf.limbs = make([]Word, limbCount)
 
+	// bHalf <- b / 2
+	// bMinusAHalf <- (b - a) / 2
 	var b, bHalf, bMinusAHalf Nat
 	b.limbs = make([]Word, limbCount)
 	copy(b.limbs, m.limbs)
 	bHalf.limbs = make([]Word, limbCount)
 	bMinusAHalf.limbs = make([]Word, limbCount)
 
+	// uHalf <- u / 2
+	// uHalfAdjust <- u / 2 + adjust (if u wasn't even)
+	// uMinusVHalf <- (u - v) / 2
+	// uMinusVHalfUnder <- (u - v) + m (when the subtraction overflows)
+	// uMinusVHalfUnder <- (u - v) / 2 + adjust (if this wasn't even)
 	var u, uHalf, uHalfAdjust, uMinusVHalf, uMinusVHalfUnder, uMinusVHalfAdjust Nat
 	u.limbs = make([]Word, limbCount)
 	u.limbs[0] = 1
@@ -218,6 +229,11 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	uMinusVHalfUnder.limbs = make([]Word, limbCount)
 	uMinusVHalfAdjust.limbs = make([]Word, limbCount)
 
+	// vHalf <- v / 2
+	// vHalfAdjust <- v / 2 + adjust (if v wasn't even)
+	// vMinusUHalf <- (v - u) / 2
+	// vMinusUHalfUnder <- (v - u) + m (when the subtraction overflows)
+	// vMinusUHalfUnder <- (v - u) / 2 + adjust (if this wasn't even)
 	var v, vHalf, vHalfAdjust, vMinusUHalf, vMinusUHalfUnder, vMinusUHalfAdjust Nat
 	v.limbs = make([]Word, limbCount)
 	vHalf.limbs = make([]Word, limbCount)
@@ -226,8 +242,13 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	vMinusUHalfUnder.limbs = make([]Word, limbCount)
 	vMinusUHalfAdjust.limbs = make([]Word, limbCount)
 
+	// In order to implement a / 2 mod m, if a might not be even,
+	// we shift right by 2, and the conditionally add in (m + 1) / 2.
+	// Adjust contains (m + 1) / 2
 	var adjust Nat
-	// We just want to add 1 to m, and then shift down
+	// We just want to add 1 to m, and then shift down, so we need to have an extra
+	// bit of capacity in case adding 1 to m needs an extra limb. I guess this is necessary
+	// e.g. you're using a mersenne prime as a modulus?
 	adjust.Add(&u, m, _W*uint(limbCount)+1)
 	shrVU(adjust.limbs, adjust.limbs, 1)
 	adjust.limbs = adjust.limbs[:limbCount]
@@ -260,6 +281,23 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 		vAdjust := shrVU(vMinusUHalf.limbs, vMinusUHalf.limbs, 1) >> (_W - 1)
 		addVV(vMinusUHalfAdjust.limbs, vMinusUHalf.limbs, adjust.limbs)
 		constantTimeWordCopy(int(vAdjust), vMinusUHalf.limbs, vMinusUHalfAdjust.limbs)
+
+		// Here's the big idea:
+		//
+		// if a == b:
+		//	 pass
+		// else if even(a):
+		//	 a <- a / 2
+		//   u <- u / 2 mod m
+		// else if even(b):
+		//   b <- b / 2
+		//   v <- v / 2 mod m
+		// else if a > b:
+		//   a <- (a - b) / 2
+		//   u <- (u - v) / 2 mod m
+		// else if b > a:
+		//   b <- (b - a) / 2
+		//   v <- (v - u) / 2 mod m
 
 		// TODO: Is this the best way of making the selection matrix?
 		// Exactly one of these is going to be true, in theory
