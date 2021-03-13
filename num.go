@@ -196,22 +196,60 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
-	/*
-		limbCount := len(m.limbs)
-		var a, b, u, v Nat
-		a.Mod(x, m)
-		b.limbs = make([]Word, limbCount)
-		copy(b.limbs, m.limbs)
-		u.limbs = make([]Word, limbCount)
-		u.limbs[0] = 1
-		v.limbs = make([]Word, limbCount)
+	limbCount := len(m.limbs)
+	var a, b, u, v, adjust, aSubB Nat
+	a.Mod(x, m)
+	b.limbs = make([]Word, limbCount)
+	copy(b.limbs, m.limbs)
+	u.limbs = make([]Word, limbCount)
+	u.limbs[0] = 1
+	v.limbs = make([]Word, limbCount)
+	adjust.Add(&u, m, uint(limbCount)*_W+1)
+	shrVU(adjust.limbs, adjust.limbs, 1)
+	adjust.limbs = adjust.limbs[:limbCount]
+	aSubB.limbs = make([]Word, limbCount)
 
-		for a.CmpEq(&b) != 1 {
-
+	for a.CmpEq(&b) != 1 {
+		if (a.limbs[0] & 1) == 0 {
+			shrVU(a.limbs, a.limbs, 1)
+			c := shrVU(u.limbs, u.limbs, 1)
+			if c != 0 {
+				addVV(u.limbs, u.limbs, adjust.limbs)
+			}
+		} else if (b.limbs[0] & 1) == 0 {
+			shrVU(b.limbs, b.limbs, 1)
+			c := shrVU(v.limbs, v.limbs, 1)
+			if c != 0 {
+				addVV(v.limbs, v.limbs, adjust.limbs)
+			}
+		} else {
+			underflow := subVV(aSubB.limbs, a.limbs, b.limbs)
+			if underflow == 0 {
+				subVV(a.limbs, a.limbs, b.limbs)
+				shrVU(a.limbs, a.limbs, 1)
+				underflow = subVV(u.limbs, u.limbs, v.limbs)
+				if underflow != 0 {
+					addVV(u.limbs, u.limbs, m.limbs)
+				}
+				c := shrVU(u.limbs, u.limbs, 1)
+				if c != 0 {
+					addVV(u.limbs, u.limbs, adjust.limbs)
+				}
+			} else {
+				subVV(b.limbs, b.limbs, a.limbs)
+				shrVU(b.limbs, b.limbs, 1)
+				underflow = subVV(v.limbs, v.limbs, u.limbs)
+				if underflow != 0 {
+					addVV(v.limbs, v.limbs, m.limbs)
+				}
+				c := shrVU(v.limbs, v.limbs, 1)
+				if c != 0 {
+					addVV(v.limbs, v.limbs, adjust.limbs)
+				}
+			}
 		}
-	*/
-
-	*z = fromInt(z.toInt().ModInverse(x.toInt(), m.toInt()))
+	}
+	z.limbs = u.limbs
 	return z
 }
 

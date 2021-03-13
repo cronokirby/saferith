@@ -87,7 +87,7 @@ func shlVU(z, x []Word, s uint) (c Word) {
 // The length of z and x must match
 //
 // LEAK: the length of z and x, whether or not s is 0
-func shrVU_g(z, x []Word, s uint) (c Word) {
+func shrVU(z, x []Word, s uint) (c Word) {
 	if s == 0 {
 		copy(z, x)
 		return

@@ -235,7 +235,7 @@ func testModInverseMultiplication(a Nat) bool {
 	var scratch, m, one, zero Nat
 	zero.SetUint64(0)
 	one.SetUint64(1)
-	for _, x := range []uint64{2, 3, 5, 7, 13, 19, 47, 97} {
+	for _, x := range []uint64{3, 5, 7, 13, 19, 47, 97} {
 		m.SetUint64(x)
 		scratch.Mod(&a, &m)
 		if scratch.CmpEq(&zero) == 1 {
@@ -374,6 +374,13 @@ func TestModInverseExamples(t *testing.T) {
 	m.SetUint64(13)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(7)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(16359684999990746055)
+	m.SetUint64(7)
+	x = *x.ModInverse(&x, &m)
+	z.SetUint64(3)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
