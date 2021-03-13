@@ -197,57 +197,85 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	limbCount := len(m.limbs)
-	var a, b, u, v, adjust, aSubB Nat
+
+	var a, aHalf, aMinusBHalf Nat
 	a.Mod(x, m)
+	aHalf.limbs = make([]Word, limbCount)
+	aMinusBHalf.limbs = make([]Word, limbCount)
+
+	var b, bHalf, bMinusAHalf Nat
 	b.limbs = make([]Word, limbCount)
 	copy(b.limbs, m.limbs)
+	bHalf.limbs = make([]Word, limbCount)
+	bMinusAHalf.limbs = make([]Word, limbCount)
+
+	var u, uHalf, uHalfAdjust, uMinusVHalf, uMinusVHalfUnder, uMinusVHalfAdjust Nat
 	u.limbs = make([]Word, limbCount)
 	u.limbs[0] = 1
+	uHalf.limbs = make([]Word, limbCount)
+	uHalfAdjust.limbs = make([]Word, limbCount)
+	uMinusVHalf.limbs = make([]Word, limbCount)
+	uMinusVHalfUnder.limbs = make([]Word, limbCount)
+	uMinusVHalfAdjust.limbs = make([]Word, limbCount)
+
+	var v, vHalf, vHalfAdjust, vMinusUHalf, vMinusUHalfUnder, vMinusUHalfAdjust Nat
 	v.limbs = make([]Word, limbCount)
-	adjust.Add(&u, m, uint(limbCount)*_W+1)
+	vHalf.limbs = make([]Word, limbCount)
+	vHalfAdjust.limbs = make([]Word, limbCount)
+	vMinusUHalf.limbs = make([]Word, limbCount)
+	vMinusUHalfUnder.limbs = make([]Word, limbCount)
+	vMinusUHalfAdjust.limbs = make([]Word, limbCount)
+
+	var adjust Nat
+	// We just want to add 1 to m, and then shift down
+	adjust.Add(&u, m, _W*uint(limbCount)+1)
 	shrVU(adjust.limbs, adjust.limbs, 1)
 	adjust.limbs = adjust.limbs[:limbCount]
-	aSubB.limbs = make([]Word, limbCount)
 
-	for a.CmpEq(&b) != 1 {
-		if (a.limbs[0] & 1) == 0 {
-			shrVU(a.limbs, a.limbs, 1)
-			c := shrVU(u.limbs, u.limbs, 1)
-			if c != 0 {
-				addVV(u.limbs, u.limbs, adjust.limbs)
-			}
-		} else if (b.limbs[0] & 1) == 0 {
-			shrVU(b.limbs, b.limbs, 1)
-			c := shrVU(v.limbs, v.limbs, 1)
-			if c != 0 {
-				addVV(v.limbs, v.limbs, adjust.limbs)
-			}
-		} else {
-			underflow := subVV(aSubB.limbs, a.limbs, b.limbs)
-			if underflow == 0 {
-				subVV(a.limbs, a.limbs, b.limbs)
-				shrVU(a.limbs, a.limbs, 1)
-				underflow = subVV(u.limbs, u.limbs, v.limbs)
-				if underflow != 0 {
-					addVV(u.limbs, u.limbs, m.limbs)
-				}
-				c := shrVU(u.limbs, u.limbs, 1)
-				if c != 0 {
-					addVV(u.limbs, u.limbs, adjust.limbs)
-				}
-			} else {
-				subVV(b.limbs, b.limbs, a.limbs)
-				shrVU(b.limbs, b.limbs, 1)
-				underflow = subVV(v.limbs, v.limbs, u.limbs)
-				if underflow != 0 {
-					addVV(v.limbs, v.limbs, m.limbs)
-				}
-				c := shrVU(v.limbs, v.limbs, 1)
-				if c != 0 {
-					addVV(v.limbs, v.limbs, adjust.limbs)
-				}
-			}
-		}
+	for i := 1; i < _W*limbCount; i++ {
+		aOdd := shrVU(aHalf.limbs, a.limbs, 1) >> (_W - 1)
+		bLarger := subVV(aMinusBHalf.limbs, a.limbs, b.limbs)
+		shrVU(aMinusBHalf.limbs, aMinusBHalf.limbs, 1)
+
+		bOdd := shrVU(bHalf.limbs, b.limbs, 1) >> (_W - 1)
+		aLarger := subVV(bMinusAHalf.limbs, b.limbs, a.limbs)
+		shrVU(bMinusAHalf.limbs, bMinusAHalf.limbs, 1)
+
+		uOdd := shrVU(uHalf.limbs, u.limbs, 1) >> (_W - 1)
+		addVV(uHalfAdjust.limbs, uHalf.limbs, adjust.limbs)
+		constantTimeWordCopy(int(uOdd), uHalf.limbs, uHalfAdjust.limbs)
+		uUnder := subVV(uMinusVHalf.limbs, u.limbs, v.limbs)
+		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.limbs)
+		constantTimeWordCopy(int(uUnder), uMinusVHalf.limbs, uMinusVHalfUnder.limbs)
+		uAdjust := shrVU(uMinusVHalf.limbs, uMinusVHalf.limbs, 1) >> (_W - 1)
+		addVV(uMinusVHalfAdjust.limbs, uMinusVHalf.limbs, adjust.limbs)
+		constantTimeWordCopy(int(uAdjust), uMinusVHalf.limbs, uMinusVHalfAdjust.limbs)
+
+		vOdd := shrVU(vHalf.limbs, v.limbs, 1) >> (_W - 1)
+		addVV(vHalfAdjust.limbs, vHalf.limbs, adjust.limbs)
+		constantTimeWordCopy(int(vOdd), vHalf.limbs, vHalfAdjust.limbs)
+		vUnder := subVV(vMinusUHalf.limbs, v.limbs, u.limbs)
+		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.limbs)
+		constantTimeWordCopy(int(vUnder), vMinusUHalf.limbs, vMinusUHalfUnder.limbs)
+		vAdjust := shrVU(vMinusUHalf.limbs, vMinusUHalf.limbs, 1) >> (_W - 1)
+		addVV(vMinusUHalfAdjust.limbs, vMinusUHalf.limbs, adjust.limbs)
+		constantTimeWordCopy(int(vAdjust), vMinusUHalf.limbs, vMinusUHalfAdjust.limbs)
+
+		// TODO: Is this the best way of making the selection matrix?
+		// Exactly one of these is going to be true, in theory
+		select1 := 1 - int(aOdd)
+		select2 := (1 - select1) & (1 - int(bOdd))
+		select3 := (1 - select1) & (1 - select2) & int(aLarger)
+		select4 := (1 - select1) & (1 - select2) & (1 - select3) & int(bLarger)
+
+		constantTimeWordCopy(select1, a.limbs, aHalf.limbs)
+		constantTimeWordCopy(select1, u.limbs, uHalf.limbs)
+		constantTimeWordCopy(select2, b.limbs, bHalf.limbs)
+		constantTimeWordCopy(select2, v.limbs, vHalf.limbs)
+		constantTimeWordCopy(select3, a.limbs, aMinusBHalf.limbs)
+		constantTimeWordCopy(select3, u.limbs, uMinusVHalf.limbs)
+		constantTimeWordCopy(select4, b.limbs, bMinusAHalf.limbs)
+		constantTimeWordCopy(select4, v.limbs, vMinusUHalf.limbs)
 	}
 	z.limbs = u.limbs
 	return z
