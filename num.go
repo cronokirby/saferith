@@ -2,20 +2,6 @@ package safenum
 
 import (
 	"math/big"
-	"math/bits"
-)
-
-// NOTE: We define a type alias for our limbs, to make integration with
-// big's internal routines easier later.
-
-// Word represents the type of limbs of a natural number
-type Word = uint
-
-const (
-	// Word size in bits
-	_W = bits.UintSize
-	// Word size in bytes
-	_S = _W / 8
 )
 
 // Nat represents an arbitrary sized natural number.

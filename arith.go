@@ -1,16 +1,29 @@
-// Parts of this file come from Go's standard library
-//
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found at https://github.com/golang/go/blob/master/LICENSE
+// license that can be found in the LICENSE file.
 
-// NOTE: When integrating this library into the standard library, you can get
-// rid of the functions that already have a counterpart, since those
-// are already safe, at least with our assumptions about the shape of slices
+// This file provides Go implementations of elementary multi-precision
+// arithmetic operations on word vectors. These have the suffix _g.
+// These are needed for platforms without assembly implementations of these routines.
+// This file also contains elementary operations that can be implemented
+// sufficiently efficiently in Go.
 
 package safenum
 
-import "math/bits"
+import (
+	"math/bits"
+)
+
+// A Word represents a single digit of a multi-precision unsigned integer.
+type Word uint
+
+const (
+	_S = _W / 8 // word size in bytes
+
+	_W = bits.UintSize // word size in bits
+	_B = 1 << _W       // digit base
+	_M = _B - 1        // digit mask
+)
 
 // Many of the loops in this file are of the form
 //   for i := 0; i < len(z) && i < len(x) && i < len(y); i++
@@ -24,10 +37,33 @@ import "math/bits"
 // but the compiler's BCE isn't powerful enough for them (yet?).
 // See the discussion in CL 164966.
 
-// Add two slices of Word, returning the carry you end up with
+// ----------------------------------------------------------------------------
+// Elementary operations on words
 //
-// LEAK: The lengths of x, y, and z
-func addVV(z, x, y []Word) (c Word) {
+// These operations are used by the vector operations below.
+
+// z1<<_W + z0 = x*y
+func mulWW_g(x, y Word) (z1, z0 Word) {
+	hi, lo := bits.Mul(uint(x), uint(y))
+	return Word(hi), Word(lo)
+}
+
+// z1<<_W + z0 = x*y + c
+func mulAddWWW_g(x, y, c Word) (z1, z0 Word) {
+	hi, lo := bits.Mul(uint(x), uint(y))
+	var cc uint
+	lo, cc = bits.Add(lo, uint(c), 0)
+	return Word(hi + cc), Word(lo)
+}
+
+// nlz returns the number of leading zeros in x.
+// Wraps bits.LeadingZeros call for convenience.
+func nlz(x Word) uint {
+	return uint(bits.LeadingZeros(uint(x)))
+}
+
+// The resulting carry c is either 0 or 1.
+func addVV_g(z, x, y []Word) (c Word) {
 	// The comment near the top of this file discusses this for loop condition.
 	for i := 0; i < len(z) && i < len(x) && i < len(y); i++ {
 		zi, cc := bits.Add(uint(x[i]), uint(y[i]), uint(c))
@@ -37,12 +73,8 @@ func addVV(z, x, y []Word) (c Word) {
 	return
 }
 
-// Subtract one slice of Word from another, returning the carry you end up with
-//
-// The carry is 1 if the result underflows, so to speak
-//
-// LEAK: The lengths of x, y, and z
-func subVV(z, x, y []Word) (c Word) {
+// The resulting carry c is either 0 or 1.
+func subVV_g(z, x, y []Word) (c Word) {
 	// The comment near the top of this file discusses this for loop condition.
 	for i := 0; i < len(z) && i < len(x) && i < len(y); i++ {
 		zi, cc := bits.Sub(uint(x[i]), uint(y[i]), uint(c))
@@ -52,14 +84,68 @@ func subVV(z, x, y []Word) (c Word) {
 	return
 }
 
-// Shift x by s, outputting the result in z
-//
-// The carry consists of all the bits that were shifted out
-//
-// The length of z and x must match
-//
-// LEAK: the length of z and x, whether or not s is 0
-func shlVU(z, x []Word, s uint) (c Word) {
+// The resulting carry c is either 0 or 1.
+func addVW_g(z, x []Word, y Word) (c Word) {
+	c = y
+	// The comment near the top of this file discusses this for loop condition.
+	for i := 0; i < len(z) && i < len(x); i++ {
+		zi, cc := bits.Add(uint(x[i]), uint(c), 0)
+		z[i] = Word(zi)
+		c = Word(cc)
+	}
+	return
+}
+
+// addVWlarge is addVW, but intended for large z.
+// The only difference is that we check on every iteration
+// whether we are done with carries,
+// and if so, switch to a much faster copy instead.
+// This is only a good idea for large z,
+// because the overhead of the check and the function call
+// outweigh the benefits when z is small.
+func addVWlarge(z, x []Word, y Word) (c Word) {
+	c = y
+	// The comment near the top of this file discusses this for loop condition.
+	for i := 0; i < len(z) && i < len(x); i++ {
+		if c == 0 {
+			copy(z[i:], x[i:])
+			return
+		}
+		zi, cc := bits.Add(uint(x[i]), uint(c), 0)
+		z[i] = Word(zi)
+		c = Word(cc)
+	}
+	return
+}
+
+func subVW_g(z, x []Word, y Word) (c Word) {
+	c = y
+	// The comment near the top of this file discusses this for loop condition.
+	for i := 0; i < len(z) && i < len(x); i++ {
+		zi, cc := bits.Sub(uint(x[i]), uint(c), 0)
+		z[i] = Word(zi)
+		c = Word(cc)
+	}
+	return
+}
+
+// subVWlarge is to subVW as addVWlarge is to addVW.
+func subVWlarge(z, x []Word, y Word) (c Word) {
+	c = y
+	// The comment near the top of this file discusses this for loop condition.
+	for i := 0; i < len(z) && i < len(x); i++ {
+		if c == 0 {
+			copy(z[i:], x[i:])
+			return
+		}
+		zi, cc := bits.Sub(uint(x[i]), uint(c), 0)
+		z[i] = Word(zi)
+		c = Word(cc)
+	}
+	return
+}
+
+func shlVU_g(z, x []Word, s uint) (c Word) {
 	if s == 0 {
 		copy(z, x)
 		return
@@ -78,16 +164,7 @@ func shlVU(z, x []Word, s uint) (c Word) {
 	return
 }
 
-// Perform a logical right shift by s bits, from x into z
-//
-// The carry consists of the bits that were shifted out, but adjusted
-// by _W - s bits to the left. Shifting right by _W - s can get the bits
-// as they were in their original position.
-//
-// The length of z and x must match
-//
-// LEAK: the length of z and x, whether or not s is 0
-func shrVU(z, x []Word, s uint) (c Word) {
+func shrVU_g(z, x []Word, s uint) (c Word) {
 	if s == 0 {
 		copy(z, x)
 		return
@@ -106,23 +183,107 @@ func shrVU(z, x []Word, s uint) (c Word) {
 	return
 }
 
-func mulAddWWW(x, y, c Word) (z1, z0 Word) {
-	hi, lo := bits.Mul(uint(x), uint(y))
-	var cc uint
-	lo, cc = bits.Add(lo, uint(c), 0)
-	return Word(hi + cc), Word(lo)
-}
-
-// z += x * y
-//
-// LEAK: The length of z and x
-func addMulVVW(z, x []Word, y Word) (c Word) {
+func mulAddVWW_g(z, x []Word, y, r Word) (c Word) {
+	c = r
 	// The comment near the top of this file discusses this for loop condition.
 	for i := 0; i < len(z) && i < len(x); i++ {
-		z1, z0 := mulAddWWW(x[i], y, z[i])
+		c, z[i] = mulAddWWW_g(x[i], y, c)
+	}
+	return
+}
+
+func addMulVVW_g(z, x []Word, y Word) (c Word) {
+	// The comment near the top of this file discusses this for loop condition.
+	for i := 0; i < len(z) && i < len(x); i++ {
+		z1, z0 := mulAddWWW_g(x[i], y, z[i])
 		lo, cc := bits.Add(uint(z0), uint(c), 0)
 		c, z[i] = Word(cc), Word(lo)
 		c += z1
 	}
 	return
+}
+
+// q = ( x1 << _W + x0 - r)/y. m = floor(( _B^2 - 1 ) / d - _B). Requiring x1<y.
+// An approximate reciprocal with a reference to "Improved Division by Invariant Integers
+// (IEEE Transactions on Computers, 11 Jun. 2010)"
+func divWW(x1, x0, y, m Word) (q, r Word) {
+	s := nlz(y)
+	if s != 0 {
+		x1 = x1<<s | x0>>(_W-s)
+		x0 <<= s
+		y <<= s
+	}
+	d := uint(y)
+	// We know that
+	//   m = ⎣(B^2-1)/d⎦-B
+	//   ⎣(B^2-1)/d⎦ = m+B
+	//   (B^2-1)/d = m+B+delta1    0 <= delta1 <= (d-1)/d
+	//   B^2/d = m+B+delta2        0 <= delta2 <= 1
+	// The quotient we're trying to compute is
+	//   quotient = ⎣(x1*B+x0)/d⎦
+	//            = ⎣(x1*B*(B^2/d)+x0*(B^2/d))/B^2⎦
+	//            = ⎣(x1*B*(m+B+delta2)+x0*(m+B+delta2))/B^2⎦
+	//            = ⎣(x1*m+x1*B+x0)/B + x0*m/B^2 + delta2*(x1*B+x0)/B^2⎦
+	// The latter two terms of this three-term sum are between 0 and 1.
+	// So we can compute just the first term, and we will be low by at most 2.
+	t1, t0 := bits.Mul(uint(m), uint(x1))
+	_, c := bits.Add(t0, uint(x0), 0)
+	t1, _ = bits.Add(t1, uint(x1), c)
+	// The quotient is either t1, t1+1, or t1+2.
+	// We'll try t1 and adjust if needed.
+	qq := t1
+	// compute remainder r=x-d*q.
+	dq1, dq0 := bits.Mul(d, qq)
+	r0, b := bits.Sub(uint(x0), dq0, 0)
+	r1, _ := bits.Sub(uint(x1), dq1, b)
+	// The remainder we just computed is bounded above by B+d:
+	// r = x1*B + x0 - d*q.
+	//   = x1*B + x0 - d*⎣(x1*m+x1*B+x0)/B⎦
+	//   = x1*B + x0 - d*((x1*m+x1*B+x0)/B-alpha)                                   0 <= alpha < 1
+	//   = x1*B + x0 - x1*d/B*m                         - x1*d - x0*d/B + d*alpha
+	//   = x1*B + x0 - x1*d/B*⎣(B^2-1)/d-B⎦             - x1*d - x0*d/B + d*alpha
+	//   = x1*B + x0 - x1*d/B*⎣(B^2-1)/d-B⎦             - x1*d - x0*d/B + d*alpha
+	//   = x1*B + x0 - x1*d/B*((B^2-1)/d-B-beta)        - x1*d - x0*d/B + d*alpha   0 <= beta < 1
+	//   = x1*B + x0 - x1*B + x1/B + x1*d + x1*d/B*beta - x1*d - x0*d/B + d*alpha
+	//   =        x0        + x1/B        + x1*d/B*beta        - x0*d/B + d*alpha
+	//   = x0*(1-d/B) + x1*(1+d*beta)/B + d*alpha
+	//   <  B*(1-d/B) +  d*B/B          + d          because x0<B (and 1-d/B>0), x1<d, 1+d*beta<=B, alpha<1
+	//   =  B - d     +  d              + d
+	//   = B+d
+	// So r1 can only be 0 or 1. If r1 is 1, then we know q was too small.
+	// Add 1 to q and subtract d from r. That guarantees that r is <B, so
+	// we no longer need to keep track of r1.
+	if r1 != 0 {
+		qq++
+		r0 -= d
+	}
+	// If the remainder is still too large, increment q one more time.
+	if r0 >= d {
+		qq++
+		r0 -= d
+	}
+	return Word(qq), Word(r0 >> s)
+}
+
+func divWVW(z []Word, xn Word, x []Word, y Word) (r Word) {
+	r = xn
+	if len(x) == 1 {
+		qq, rr := bits.Div(uint(r), uint(x[0]), uint(y))
+		z[0] = Word(qq)
+		return Word(rr)
+	}
+	rec := reciprocalWord(y)
+	for i := len(z) - 1; i >= 0; i-- {
+		z[i], r = divWW(r, x[i], y, rec)
+	}
+	return r
+}
+
+// reciprocalWord return the reciprocal of the divisor. rec = floor(( _B^2 - 1 ) / u - _B). u = d1 << nlz(d1).
+func reciprocalWord(d1 Word) Word {
+	u := uint(d1 << nlz(d1))
+	x1 := ^u
+	x0 := uint(_M)
+	rec, _ := bits.Div(x1, x0, u) // (_B^2-1)/U-_B = (_B*(_M-C)+_M)/U
+	return Word(rec)
 }
