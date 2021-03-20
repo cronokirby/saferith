@@ -154,6 +154,7 @@ func BenchmarkModNat(b *testing.B) {
 	}
 	var x Nat
 	var m Nat
+	x.SetBytes(bytes)
 	m.SetUint64(13)
 	for n := 0; n < b.N; n++ {
 		var z Nat
