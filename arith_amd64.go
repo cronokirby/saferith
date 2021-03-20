@@ -7,4 +7,4 @@
 package safenum
 
 // This should be feature detected, but we can't use the internal/cpu package
-var support_adx = true
+var support_adx = false
