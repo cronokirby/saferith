@@ -79,6 +79,7 @@ func BenchmarkModBig(b *testing.B) {
 	}
 	var x big.Int
 	var m big.Int
+	x.SetBytes(bytes)
 	m.SetUint64(13)
 	for n := 0; n < b.N; n++ {
 		var z big.Int
