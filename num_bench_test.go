@@ -88,6 +88,50 @@ func BenchmarkModBig(b *testing.B) {
 	}
 }
 
+func BenchmarkModInverseBig(b *testing.B) {
+	bytes := make([]byte, _SIZE)
+	for i := 0; i < _SIZE; i++ {
+		bytes[i] = 1
+	}
+	var x big.Int
+	var m big.Int
+	x.SetBytes(bytes)
+	m.SetUint64(13)
+	for n := 0; n < b.N; n++ {
+		var z big.Int
+		z.ModInverse(&x, &m)
+		resultBig = z
+	}
+}
+
+func BenchmarkExpBig(b *testing.B) {
+	bytes := make([]byte, _SIZE)
+	for i := 0; i < _SIZE; i++ {
+		bytes[i] = 1
+	}
+	var x big.Int
+	var m big.Int
+	x.SetBytes(bytes)
+	m.SetUint64(13)
+	for n := 0; n < b.N; n++ {
+		var z big.Int
+		z.Exp(&x, &x, &m)
+		resultBig = z
+	}
+}
+
+func BenchmarkSetBytesBig(b *testing.B) {
+	bytes := make([]byte, _SIZE)
+	for i := 0; i < _SIZE; i++ {
+		bytes[i] = 1
+	}
+	for n := 0; n < b.N; n++ {
+		var z big.Int
+		z.SetBytes(bytes)
+		resultBig = z
+	}
+}
+
 func BenchmarkAddNat(b *testing.B) {
 	bytes := make([]byte, _SIZE)
 	for i := 0; i < _SIZE; i++ {
@@ -160,6 +204,50 @@ func BenchmarkModNat(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		var z Nat
 		z.Mod(&x, &m)
+		resultNat = z
+	}
+}
+
+func BenchmarkModInverseNat(b *testing.B) {
+	bytes := make([]byte, _SIZE)
+	for i := 0; i < _SIZE; i++ {
+		bytes[i] = 1
+	}
+	var x Nat
+	var m Nat
+	x.SetBytes(bytes)
+	m.SetUint64(13)
+	for n := 0; n < b.N; n++ {
+		var z Nat
+		z.ModInverse(&x, &m)
+		resultNat = z
+	}
+}
+
+func BenchmarkExpNat(b *testing.B) {
+	bytes := make([]byte, _SIZE)
+	for i := 0; i < _SIZE; i++ {
+		bytes[i] = 1
+	}
+	var x Nat
+	var m Nat
+	x.SetBytes(bytes)
+	m.SetUint64(13)
+	for n := 0; n < b.N; n++ {
+		var z Nat
+		z.Exp(&x, &x, &m)
+		resultNat = z
+	}
+}
+
+func BenchmarkSetBytesNat(b *testing.B) {
+	bytes := make([]byte, _SIZE)
+	for i := 0; i < _SIZE; i++ {
+		bytes[i] = 1
+	}
+	for n := 0; n < b.N; n++ {
+		var z Nat
+		z.SetBytes(bytes)
 		resultNat = z
 	}
 }
