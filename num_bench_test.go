@@ -10,121 +10,158 @@ var resultNat Nat
 
 const _SIZE = 512
 
-func BenchmarkAddBig(b *testing.B) {
+func ones() []byte {
 	bytes := make([]byte, _SIZE)
 	for i := 0; i < _SIZE; i++ {
 		bytes[i] = 1
 	}
+	return bytes
+}
+
+// 2^3217 - 1 is a mersenne prime
+func largePrime() []byte {
+	bytes := make([]byte, 403)
+	for i := 1; i < len(bytes); i++ {
+		bytes[i] = 0xFF
+	}
+	bytes[0] = 0x01
+	return bytes
+}
+
+func BenchmarkAddBig(b *testing.B) {
 	var x big.Int
-	x.SetBytes(bytes)
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z big.Int
 		z.Add(&x, &x)
+		resultBig = z
+	}
+}
+
+func _benchmarkModAddBig(m *big.Int, b *testing.B) {
+	var x big.Int
+	x.SetBytes(ones())
+	for n := 0; n < b.N; n++ {
+		var z big.Int
+		z.Add(&x, &x)
+		z.Mod(&x, m)
 		resultBig = z
 	}
 }
 
 func BenchmarkModAddBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x big.Int
 	var m big.Int
-	x.SetBytes(bytes)
 	m.SetUint64(13)
+	_benchmarkModAddBig(&m, b)
+}
+
+func BenchmarkLargeModAddBig(b *testing.B) {
+	var m big.Int
+	m.SetBytes(largePrime())
+	_benchmarkModAddBig(&m, b)
+}
+
+func BenchmarkMulBig(b *testing.B) {
+	var x big.Int
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.Add(&x, &x)
-		z.Mod(&x, &m)
+		z.Mul(&x, &x)
 		resultBig = z
 	}
 }
 
-func BenchmarkMulBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
+func _benchmarkModMulBig(m *big.Int, b *testing.B) {
 	var x big.Int
-	x.SetBytes(bytes)
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z big.Int
 		z.Mul(&x, &x)
+		z.Mod(&x, m)
 		resultBig = z
 	}
 }
 
 func BenchmarkModMulBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x big.Int
 	var m big.Int
-	x.SetBytes(bytes)
 	m.SetUint64(13)
+	_benchmarkModMulBig(&m, b)
+}
+
+func BenchmarkLargeModMulBig(b *testing.B) {
+	var m big.Int
+	m.SetBytes(largePrime())
+	_benchmarkModMulBig(&m, b)
+}
+
+func _benchmarkModBig(m *big.Int, b *testing.B) {
+	var x big.Int
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.Mul(&x, &x)
-		z.Mod(&x, &m)
+		z.Mod(&x, m)
 		resultBig = z
 	}
 }
 
 func BenchmarkModBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x big.Int
 	var m big.Int
-	x.SetBytes(bytes)
 	m.SetUint64(13)
+	_benchmarkModBig(&m, b)
+}
+
+func BenchmarkLargeModBig(b *testing.B) {
+	var m big.Int
+	m.SetBytes(largePrime())
+	_benchmarkModBig(&m, b)
+}
+
+func _benchmarkModInverseBig(m *big.Int, b *testing.B) {
+	var x big.Int
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.Mod(&x, &m)
+		z.ModInverse(&x, m)
 		resultBig = z
 	}
 }
 
 func BenchmarkModInverseBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x big.Int
 	var m big.Int
-	x.SetBytes(bytes)
 	m.SetUint64(13)
+	_benchmarkModInverseBig(&m, b)
+}
+
+func BenchmarkLargeModInverseBig(b *testing.B) {
+	var m big.Int
+	m.SetBytes(largePrime())
+	_benchmarkModInverseBig(&m, b)
+}
+
+func _benchmarkExpBig(m *big.Int, b *testing.B) {
+	var x big.Int
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.ModInverse(&x, &m)
+		z.Exp(&x, &x, m)
 		resultBig = z
 	}
 }
 
 func BenchmarkExpBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x big.Int
 	var m big.Int
-	x.SetBytes(bytes)
 	m.SetUint64(13)
-	for n := 0; n < b.N; n++ {
-		var z big.Int
-		z.Exp(&x, &x, &m)
-		resultBig = z
-	}
+	_benchmarkExpBig(&m, b)
+}
+
+func BenchmarkLargeExpBig(b *testing.B) {
+	var m big.Int
+	m.SetBytes(largePrime())
+	_benchmarkExpBig(&m, b)
 }
 
 func BenchmarkSetBytesBig(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
+	bytes := ones()
 	for n := 0; n < b.N; n++ {
 		var z big.Int
 		z.SetBytes(bytes)
@@ -133,12 +170,8 @@ func BenchmarkSetBytesBig(b *testing.B) {
 }
 
 func BenchmarkAddNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
 	var x Nat
-	x.SetBytes(bytes)
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z Nat
 		z.Add(&x, &x, _SIZE*8)
@@ -146,29 +179,32 @@ func BenchmarkAddNat(b *testing.B) {
 	}
 }
 
-func BenchmarkModAddNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
+func _benchmarkModAddNat(m *Nat, b *testing.B) {
 	var x Nat
-	var m Nat
-	x.SetBytes(bytes)
-	m.SetUint64(13)
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.ModAdd(&x, &x, &m)
+		z.Add(&x, &x, _SIZE*8)
+		z.Mod(&x, m)
 		resultNat = z
 	}
 }
 
+func BenchmarkModAddNat(b *testing.B) {
+	var m Nat
+	m.SetUint64(13)
+	_benchmarkModAddNat(&m, b)
+}
+
+func BenchmarkLargeModAddNat(b *testing.B) {
+	var m Nat
+	m.SetBytes(largePrime())
+	_benchmarkModAddNat(&m, b)
+}
+
 func BenchmarkMulNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
 	var x Nat
-	x.SetBytes(bytes)
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z Nat
 		z.Mul(&x, &x, _SIZE*2*8)
@@ -176,75 +212,96 @@ func BenchmarkMulNat(b *testing.B) {
 	}
 }
 
-func BenchmarkModMulNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
+func _benchmarkModMulNat(m *Nat, b *testing.B) {
 	var x Nat
-	var m Nat
-	x.SetBytes(bytes)
-	m.SetUint64(13)
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.ModMul(&x, &x, &m)
+		z.ModMul(&x, &x, m)
+		resultNat = z
+	}
+}
+
+func BenchmarkModMulNat(b *testing.B) {
+	var m Nat
+	m.SetUint64(13)
+	_benchmarkModAddNat(&m, b)
+}
+
+func BenchmarkLargeModMulNat(b *testing.B) {
+	var m Nat
+	m.SetBytes(largePrime())
+	_benchmarkModAddNat(&m, b)
+}
+
+func _benchmarkModNat(m *Nat, b *testing.B) {
+	var x Nat
+	x.SetBytes(ones())
+	for n := 0; n < b.N; n++ {
+		var z Nat
+		z.Mod(&x, m)
 		resultNat = z
 	}
 }
 
 func BenchmarkModNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x Nat
 	var m Nat
-	x.SetBytes(bytes)
 	m.SetUint64(13)
+	_benchmarkModNat(&m, b)
+}
+
+func BenchmarkLargeModNat(b *testing.B) {
+	var m Nat
+	m.SetBytes(largePrime())
+	_benchmarkModNat(&m, b)
+}
+
+func _benchmarkModInverseNat(m *Nat, b *testing.B) {
+	var x Nat
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.Mod(&x, &m)
+		z.ModInverse(&x, m)
 		resultNat = z
 	}
 }
 
 func BenchmarkModInverseNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x Nat
 	var m Nat
-	x.SetBytes(bytes)
 	m.SetUint64(13)
+	_benchmarkModInverseNat(&m, b)
+}
+
+func BenchmarkLargeModInverseNat(b *testing.B) {
+	var m Nat
+	m.SetBytes(largePrime())
+	_benchmarkModInverseNat(&m, b)
+}
+
+func _benchmarkExpNat(m *Nat, b *testing.B) {
+	var x Nat
+	x.SetBytes(ones())
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.ModInverse(&x, &m)
+		z.Exp(&x, &x, m)
 		resultNat = z
 	}
 }
 
 func BenchmarkExpNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
-	var x Nat
 	var m Nat
-	x.SetBytes(bytes)
 	m.SetUint64(13)
-	for n := 0; n < b.N; n++ {
-		var z Nat
-		z.Exp(&x, &x, &m)
-		resultNat = z
-	}
+	_benchmarkExpNat(&m, b)
+}
+
+func BenchmarkLargeExpNat(b *testing.B) {
+	var m Nat
+	m.SetBytes(largePrime())
+	_benchmarkExpNat(&m, b)
 }
 
 func BenchmarkSetBytesNat(b *testing.B) {
-	bytes := make([]byte, _SIZE)
-	for i := 0; i < _SIZE; i++ {
-		bytes[i] = 1
-	}
+	bytes := ones()
 	for n := 0; n < b.N; n++ {
 		var z Nat
 		z.SetBytes(bytes)
