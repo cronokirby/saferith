@@ -2,6 +2,7 @@ package safenum
 
 import (
 	"math/big"
+	"math/bits"
 )
 
 // Nat represents an arbitrary sized natural number.
@@ -13,8 +14,18 @@ import (
 // The capacity of a number is usually inherited through whatever method was used to
 // create the number in the first place.
 type Nat struct {
-	// TODO: Once we don't rely on math/big at all, use our own word type
 	limbs []Word
+}
+
+// Modulus represents a natural number used for modular reduction
+//
+// Unlike with natural numbers, the number of bits need to contain the modulus
+// is assumed to be public. Operations are allowed to leak this size, and creating
+// a modulus will remove unnecessary zeros.
+type Modulus struct {
+	nat Nat
+	// the number of leading zero bits
+	leading uint
 }
 
 // ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
@@ -56,8 +67,8 @@ func (z Nat) toInt() *big.Int {
 // Mod calculates z <- x mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus.
-func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
-	limbCount := len(m.limbs)
+func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
+	limbCount := len(m.nat.limbs)
 	// We need two buffers, because of aliasing
 	subScratch := make([]Word, limbCount)
 	rLimbs := make([]Word, limbCount)
@@ -69,7 +80,7 @@ func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
 			xi := (limb >> j) & 1
 			shiftCarry := shlVU(rLimbs, rLimbs, 1)
 			rLimbs[0] |= xi
-			subCarry := subVV(subScratch, rLimbs, m.limbs)
+			subCarry := subVV(subScratch, rLimbs, m.nat.limbs)
 			selectSub := constantTimeWordEq(shiftCarry, subCarry)
 			constantTimeWordCopy(selectSub, rLimbs, subScratch)
 		}
@@ -82,7 +93,7 @@ func (z *Nat) Mod(x *Nat, m *Nat) *Nat {
 // ModAdd calculates z <- x + y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus.
-func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
+func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	var xModM, yModM Nat
 	// This is necessary for the correctness of the algorithm, since
 	// we don't assume that x and y are in range.
@@ -92,7 +103,7 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
 	yModM.Mod(y, m)
 
 	// The only thing we have to resize is z, everything else has m's length
-	limbCount := len(m.limbs)
+	limbCount := len(m.nat.limbs)
 	z.limbs = z.resizedLimbs(limbCount)
 
 	// LEAK: limbCount
@@ -102,7 +113,7 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Nat) *Nat {
 	subResult := make([]Word, limbCount)
 	// LEAK: limbCount
 	// OK: see above
-	subCarry := subVV(subResult, z.limbs, m.limbs)
+	subCarry := subVV(subResult, z.limbs, m.nat.limbs)
 	// Three cases are possible:
 	//
 	// addCarry, subCarry = 0 -> subResult
@@ -143,7 +154,7 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 // ModMul calculates z <- x * y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) ModMul(x *Nat, y *Nat, m *Nat) *Nat {
+func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 	limbCount := len(x.limbs) + len(y.limbs)
 	cap := _W * limbCount
 	z.Mul(x, y, uint(cap))
@@ -183,8 +194,8 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 // This will produce nonsense if the modulus is even.
 //
 // The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
-	limbCount := len(m.limbs)
+func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
+	limbCount := len(m.nat.limbs)
 
 	// aHalf <- a / 2
 	// aMinusBHalf <- (a - b) / 2
@@ -197,7 +208,7 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	// bMinusAHalf <- (b - a) / 2
 	var b, bHalf, bMinusAHalf Nat
 	b.limbs = make([]Word, limbCount)
-	copy(b.limbs, m.limbs)
+	copy(b.limbs, m.nat.limbs)
 	bHalf.limbs = make([]Word, limbCount)
 	bMinusAHalf.limbs = make([]Word, limbCount)
 
@@ -235,7 +246,7 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 	// We just want to add 1 to m, and then shift down, so we need to have an extra
 	// bit of capacity in case adding 1 to m needs an extra limb. I guess this is necessary
 	// e.g. you're using a mersenne prime as a modulus?
-	adjust.Add(&u, m, _W*uint(limbCount)+1)
+	adjust.Add(&u, &m.nat, _W*uint(limbCount)+1)
 	shrVU(adjust.limbs, adjust.limbs, 1)
 	adjust.limbs = adjust.limbs[:limbCount]
 
@@ -252,7 +263,7 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 		addVV(uHalfAdjust.limbs, uHalf.limbs, adjust.limbs)
 		constantTimeWordCopy(int(uOdd), uHalf.limbs, uHalfAdjust.limbs)
 		uUnder := subVV(uMinusVHalf.limbs, u.limbs, v.limbs)
-		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.limbs)
+		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.nat.limbs)
 		constantTimeWordCopy(int(uUnder), uMinusVHalf.limbs, uMinusVHalfUnder.limbs)
 		uAdjust := shrVU(uMinusVHalf.limbs, uMinusVHalf.limbs, 1) >> (_W - 1)
 		addVV(uMinusVHalfAdjust.limbs, uMinusVHalf.limbs, adjust.limbs)
@@ -262,7 +273,7 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 		addVV(vHalfAdjust.limbs, vHalf.limbs, adjust.limbs)
 		constantTimeWordCopy(int(vOdd), vHalf.limbs, vHalfAdjust.limbs)
 		vUnder := subVV(vMinusUHalf.limbs, v.limbs, u.limbs)
-		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.limbs)
+		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.nat.limbs)
 		constantTimeWordCopy(int(vUnder), vMinusUHalf.limbs, vMinusUHalfUnder.limbs)
 		vAdjust := shrVU(vMinusUHalf.limbs, vMinusUHalf.limbs, 1) >> (_W - 1)
 		addVV(vMinusUHalfAdjust.limbs, vMinusUHalf.limbs, adjust.limbs)
@@ -308,8 +319,8 @@ func (z *Nat) ModInverse(x *Nat, m *Nat) *Nat {
 // Exp calculates z <- x^y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) Exp(x *Nat, y *Nat, m *Nat) *Nat {
-	limbCount := len(m.limbs)
+func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
+	limbCount := len(m.nat.limbs)
 	var mulScratch, xsquared, zScratch Nat
 	xsquared.limbs = make([]Word, limbCount)
 	zScratch.limbs = make([]Word, limbCount)
@@ -485,4 +496,58 @@ func (z *Nat) SetUint64(x uint64) *Nat {
 		}
 	}
 	return z
+}
+
+// setLeading calculates the number of leading zeros of the top limb of m
+//
+// This leaks the value, most likely.
+func (m *Modulus) setLeading() {
+	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
+}
+
+// SetUint64 sets the modulus according to an integer
+func (z *Modulus) SetUint64(x uint64) *Modulus {
+	z.nat.SetUint64(x)
+	// edge case for 32 bit limb size
+	if _W < 64 && len(z.nat.limbs) > 1 && z.nat.limbs[1] == 0 {
+		z.nat.limbs = z.nat.limbs[:1]
+	}
+	z.setLeading()
+	return z
+}
+
+// trueSize calculates the actual size necessary for representing these limbs
+//
+// This is the size with leading zeros removed. This naturally leaks the number
+// of such zeros
+func trueSize(limbs []Word) int {
+	var size int
+	for size = len(limbs); size > 0 && limbs[size-1] == 0; size-- {
+	}
+	return size
+}
+
+// SetBytes sets the value of the modulus according to a slice of Big Endian bytes
+//
+// This will trim the modulus to only use the necessary
+func (m *Modulus) SetBytes(bytes []byte) *Modulus {
+	// TODO: You could allocate a smaller buffer to begin with, versus using the Nat method
+	m.nat.SetBytes(bytes)
+
+	m.nat.limbs = m.nat.limbs[:trueSize(m.nat.limbs)]
+	m.setLeading()
+	return m
+}
+
+// SetNat sets the value of the modulus according to a Nat
+//
+// This will leak the exact number of bits for the natural number, so this shouldn't be sensitive.
+// Using the modulus will continue to leak this.
+func (m *Modulus) SetNat(nat Nat) *Modulus {
+	// We make a copy here, to avoid any aliasing between buffers
+	size := trueSize(nat.limbs)
+	m.nat.limbs = m.nat.resizedLimbs(size)
+	copy(m.nat.limbs, nat.limbs)
+	m.setLeading()
+	return m
 }

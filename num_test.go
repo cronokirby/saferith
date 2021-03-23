@@ -14,6 +14,12 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 	return reflect.ValueOf(n)
 }
 
+func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
+	var n Modulus
+	n.SetUint64(r.Uint64())
+	return reflect.ValueOf(n)
+}
+
 func testAddZeroIdentity(n Nat) bool {
 	var x, zero Nat
 	zero.SetUint64(0)
@@ -137,8 +143,9 @@ func TestMulOneIdentity(t *testing.T) {
 }
 
 func testModAndTruncationMatch(a Nat) bool {
-	var way1, way2, m, zero Nat
+	var way1, way2, zero Nat
 	zero.SetUint64(0)
+	var m Modulus
 	for _, x := range []uint{48, 32, 16, 8} {
 		way1.Add(&a, &zero, x)
 		m.SetUint64(1 << x)
@@ -157,7 +164,7 @@ func TestModAndTruncationMatch(t *testing.T) {
 	}
 }
 
-func testModIdempotent(a Nat, m Nat) bool {
+func testModIdempotent(a Nat, m Modulus) bool {
 	var way1, way2 Nat
 	way1.Mod(&a, &m)
 	way2.Mod(&way1, &m)
@@ -171,7 +178,7 @@ func TestModIdempotent(t *testing.T) {
 	}
 }
 
-func testModAddCommutative(a Nat, b Nat, m Nat) bool {
+func testModAddCommutative(a Nat, b Nat, m Modulus) bool {
 	var aPlusB, bPlusA Nat
 	aPlusB.ModAdd(&a, &b, &m)
 	bPlusA.ModAdd(&b, &a, &m)
@@ -185,7 +192,7 @@ func TestModAddCommutative(t *testing.T) {
 	}
 }
 
-func testModAddAssociative(a Nat, b Nat, c Nat, m Nat) bool {
+func testModAddAssociative(a Nat, b Nat, c Nat, m Modulus) bool {
 	var order1, order2 Nat
 	order1 = *order1.ModAdd(&a, &b, &m)
 	order1.ModAdd(&order1, &c, &m)
@@ -201,7 +208,7 @@ func TestModAddAssociative(t *testing.T) {
 	}
 }
 
-func testModMulCommutative(a Nat, b Nat, m Nat) bool {
+func testModMulCommutative(a Nat, b Nat, m Modulus) bool {
 	var aPlusB, bPlusA Nat
 	aPlusB.ModMul(&a, &b, &m)
 	bPlusA.ModMul(&b, &a, &m)
@@ -215,7 +222,7 @@ func TestModMulCommutative(t *testing.T) {
 	}
 }
 
-func testModMulAssociative(a Nat, b Nat, c Nat, m Nat) bool {
+func testModMulAssociative(a Nat, b Nat, c Nat, m Modulus) bool {
 	var order1, order2 Nat
 	order1 = *order1.ModMul(&a, &b, &m)
 	order1.ModMul(&order1, &c, &m)
@@ -232,9 +239,10 @@ func TestModMulAssociative(t *testing.T) {
 }
 
 func testModInverseMultiplication(a Nat) bool {
-	var scratch, m, one, zero Nat
+	var scratch, one, zero Nat
 	zero.SetUint64(0)
 	one.SetUint64(1)
+	var m Modulus
 	for _, x := range []uint64{3, 5, 7, 13, 19, 47, 97} {
 		m.SetUint64(x)
 		scratch.Mod(&a, &m)
@@ -257,7 +265,7 @@ func TestModInverseMultiplication(t *testing.T) {
 	}
 }
 
-func testExpAddition(x Nat, a Nat, b Nat, m Nat) bool {
+func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	var expA, expB, aPlusB, way1, way2 Nat
 	expA.Exp(&x, &a, &m)
 	expB.Exp(&x, &b, &m)
@@ -334,7 +342,8 @@ func TestMulExamples(t *testing.T) {
 }
 
 func TestModAddExamples(t *testing.T) {
-	var x, y, m, z Nat
+	var x, y, z Nat
+	var m Modulus
 	m.SetUint64(13)
 	x.SetUint64(40)
 	y.SetUint64(40)
@@ -346,7 +355,8 @@ func TestModAddExamples(t *testing.T) {
 }
 
 func TestModMulExamples(t *testing.T) {
-	var x, y, m, z Nat
+	var x, y, z Nat
+	var m Modulus
 	m.SetUint64(13)
 	x.SetUint64(40)
 	y.SetUint64(40)
@@ -358,8 +368,9 @@ func TestModMulExamples(t *testing.T) {
 }
 
 func TestModExamples(t *testing.T) {
-	var x, one, m Nat
+	var x, one Nat
 	x.SetUint64(40)
+	var m Modulus
 	m.SetUint64(13)
 	x.Mod(&x, &m)
 	one.SetUint64(1)
@@ -369,8 +380,9 @@ func TestModExamples(t *testing.T) {
 }
 
 func TestModInverseExamples(t *testing.T) {
-	var x, z, m Nat
+	var x, z Nat
 	x.SetUint64(2)
+	var m Modulus
 	m.SetUint64(13)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(7)
@@ -387,9 +399,10 @@ func TestModInverseExamples(t *testing.T) {
 }
 
 func TestExpExamples(t *testing.T) {
-	var x, y, z, m Nat
+	var x, y, z Nat
 	x.SetUint64(3)
 	y.SetUint64(345)
+	var m Modulus
 	m.SetUint64(13)
 	x = *x.Exp(&x, &y, &m)
 	z.SetUint64(1)
