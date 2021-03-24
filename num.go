@@ -551,3 +551,8 @@ func (m *Modulus) SetNat(nat Nat) *Modulus {
 	m.setLeading()
 	return m
 }
+
+// Bytes returns the big endian bytes making up the modulus
+func (m *Modulus) Bytes() []byte {
+	return m.nat.Bytes()
+}
