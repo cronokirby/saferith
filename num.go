@@ -5,6 +5,16 @@ import (
 	"math/bits"
 )
 
+func mulSubVVW(z, x []Word, y Word) (c Word) {
+	for i := 0; i < len(z) && i < len(x); i++ {
+		hi, lo := mulAddWWW_g(x[i], y, c)
+		sub, cc := bits.Sub(uint(z[i]), uint(lo), 0)
+		c, z[i] = Word(cc), Word(sub)
+		c += hi
+	}
+	return
+}
+
 // Nat represents an arbitrary sized natural number.
 //
 // Different methods on Nats will talk about a "capacity". The capacity represents
