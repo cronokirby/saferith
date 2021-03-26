@@ -370,14 +370,21 @@ func TestModMulExamples(t *testing.T) {
 }
 
 func TestModExamples(t *testing.T) {
-	var x, one Nat
+	var x, test Nat
 	x.SetUint64(40)
 	var m Modulus
 	m.SetUint64(13)
 	x.Mod(&x, &m)
-	one.SetUint64(1)
-	if x.CmpEq(&one) != 1 {
-		t.Errorf("%+v != %+v", x, one)
+	test.SetUint64(1)
+	if x.CmpEq(&test) != 1 {
+		t.Errorf("%+v != %+v", x, test)
+	}
+	m.SetBytes([]byte{13, 0, 0, 0, 0, 0, 0, 0, 1})
+	x.SetBytes([]byte{41, 0, 0, 0, 0, 0, 0, 0, 0})
+	x.Mod(&x, &m)
+	test.SetBytes([]byte{1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD})
+	if x.CmpEq(&test) != 1 {
+		t.Errorf("%+v != %+v", x, test)
 	}
 }
 
