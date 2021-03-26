@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"crypto/subtle"
 	"math/big"
 	"math/bits"
 )
@@ -95,26 +96,59 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 		z[0] = r
 		return
 	}
-	panic("WOAH")
+
+	scratch[0] = x
+	var a1, a0, b0 Word
+	if m.leading == 0 {
+		a1 = z[size-1]
+		copy(scratch[1:], z)
+		a0 = scratch[size-1]
+		b0 = m.nat.limbs[size-1]
+	} else {
+		a1 = (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
+		copy(scratch[1:], z)
+		a0 = (scratch[size-1] << m.leading) | (scratch[size-2] >> (_W - m.leading))
+		b0 = (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
+	}
+
+	var q Word
+	// TODO: After division is constant time, MUX here instead
+	if a0 >= b0 {
+		q = ^Word(0)
+	} else {
+		q, _ = div(a1, a0, b0)
+		if q != 0 {
+			q -= 1
+		}
+	}
+	c1 := mulSubVVW(scratch, m.nat.limbs, q)
+	if c1 > a1 {
+		addVV(scratch, scratch, m.nat.limbs)
+		copy(z, scratch)
+		return
+	}
+	c := subVV(z, scratch, m.nat.limbs)
+	sel := 1
+	if c == a1-c1 {
+		sel = 0
+	}
+	constantTimeWordCopy(sel, z, scratch)
 }
 
 // Mod calculates z <- x mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
-	if len(m.nat.limbs) == 1 {
+	/*
+		size := len(m.nat.limbs)
 		xLimbs := x.limbs
-		if z == x {
-			xLimbs = make([]Word, len(x.limbs))
-			copy(xLimbs, x.limbs)
-		}
-		z.limbs = z.resizedLimbs(1)
-		z.limbs[0] = 0
+		z.limbs = make([]Word, 2*size)
 		for i := len(xLimbs) - 1; i >= 0; i-- {
-			shiftAddIn(z.limbs, z.limbs, xLimbs[i], m)
+			shiftAddIn(z.limbs[:size], z.limbs[size:], xLimbs[i], m)
 		}
+		z.limbs = z.limbs[:size]
 		return z
-	}
+	*/
 	limbCount := len(m.nat.limbs)
 	// We need two buffers, because of aliasing
 	subScratch := make([]Word, limbCount)
@@ -392,7 +426,9 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 }
 
 func constantTimeWordEq(x, y Word) int {
-	return int((uint64(x^y) - 1) >> 63)
+	zero := uint64(x ^ y)
+	// TODO: Find a better way to do this
+	return subtle.ConstantTimeEq(int32(zero), 0) & subtle.ConstantTimeEq(int32(zero>>32), 0)
 }
 
 // constantTimeWordCopy copies y into x, if v == 1, otherwise does nothing
