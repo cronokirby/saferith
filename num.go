@@ -74,10 +74,47 @@ func (z Nat) toInt() *big.Int {
 	return &ret
 }
 
+func div(hi, lo, y Word) (Word, Word) {
+	// TODO: Use constant time division
+	quo, rem := bits.Div(uint(hi), uint(lo), uint(y))
+	return Word(quo), Word(rem)
+}
+
+// shiftAddIn calculates z = z << _W + x mod m
+//
+// The length of z and scratch should be len(m) + 1
+func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
+	// Making tests on the exact bit length of m is ok,
+	// since that's part of the contract for moduli
+	size := len(m.nat.limbs)
+	if size == 0 {
+		return
+	}
+	if size == 1 {
+		_, r := div(z[0], x, m.nat.limbs[0])
+		z[0] = r
+		return
+	}
+	panic("WOAH")
+}
+
 // Mod calculates z <- x mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
+	if len(m.nat.limbs) == 1 {
+		xLimbs := x.limbs
+		if z == x {
+			xLimbs = make([]Word, len(x.limbs))
+			copy(xLimbs, x.limbs)
+		}
+		z.limbs = z.resizedLimbs(1)
+		z.limbs[0] = 0
+		for i := len(xLimbs) - 1; i >= 0; i-- {
+			shiftAddIn(z.limbs, z.limbs, xLimbs[i], m)
+		}
+		return z
+	}
 	limbCount := len(m.nat.limbs)
 	// We need two buffers, because of aliasing
 	subScratch := make([]Word, limbCount)
