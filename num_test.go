@@ -18,7 +18,8 @@ func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 32)
 	r.Read(bytes)
 	var n Modulus
-	n.SetBytes(bytes)
+	//n.SetBytes(bytes)
+	n.SetUint64(r.Uint64())
 	return reflect.ValueOf(n)
 }
 
