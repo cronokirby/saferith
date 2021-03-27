@@ -154,28 +154,6 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	}
 	z.limbs = z.limbs[:size]
 	return z
-	/*
-		limbCount := len(m.nat.limbs)
-		// We need two buffers, because of aliasing
-		subScratch := make([]Word, limbCount)
-		rLimbs := make([]Word, limbCount)
-		// LEAK: the length of x
-		// OK: this should be public
-		for i := len(x.limbs) - 1; i >= 0; i-- {
-			limb := x.limbs[i]
-			for j := _W - 1; j >= 0; j-- {
-				xi := (limb >> j) & 1
-				shiftCarry := shlVU(rLimbs, rLimbs, 1)
-				rLimbs[0] |= xi
-				subCarry := subVV(subScratch, rLimbs, m.nat.limbs)
-				selectSub := constantTimeWordEq(shiftCarry, subCarry)
-				constantTimeWordCopy(selectSub, rLimbs, subScratch)
-			}
-		}
-		// Now we can safely swap things out
-		z.limbs = rLimbs
-		return z
-	*/
 }
 
 // ModAdd calculates z <- x + y mod m
