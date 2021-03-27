@@ -145,7 +145,19 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	xLimbs := x.limbs
 	z.limbs = make([]Word, 2*size)
-	for i := len(xLimbs) - 1; i >= 0; i-- {
+	i := len(xLimbs) - 1
+	// We can inject at least size - 1 limbs while staying under m
+	// Thus, we start injecting from index size - 2
+	start := size - 2
+	// That is, if there are at least that many limbs to choose from
+	if i < start {
+		start = i
+	}
+	for j := start; j >= 0; j-- {
+		z.limbs[j] = xLimbs[i]
+		i--
+	}
+	for ; i >= 0; i-- {
 		shiftAddIn(z.limbs[:size], z.limbs[size:], xLimbs[i], m)
 	}
 	z.limbs = z.limbs[:size]
