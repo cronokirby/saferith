@@ -60,7 +60,12 @@ func (z *Nat) ensureLimbCapacity(size int) {
 // OK: both are public
 func (z *Nat) resizedLimbs(size int) []Word {
 	z.ensureLimbCapacity(size)
-	return z.limbs[:size]
+	res := z.limbs[:size]
+	// Make sure that the expansion (if any) is cleared
+	for i := len(z.limbs); i < size; i++ {
+		res[i] = 0
+	}
+	return res
 }
 
 func fromInt(i *big.Int) Nat {
@@ -113,7 +118,7 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 
 	var q Word
 	// TODO: After division is constant time, MUX here instead
-	if a0 >= b0 {
+	if a1 >= b0 {
 		q = ^Word(0)
 	} else {
 		q, _ = div(a1, a0, b0)
