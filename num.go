@@ -80,10 +80,24 @@ func (z Nat) toInt() *big.Int {
 	return &ret
 }
 
-func div(hi, lo, y Word) (Word, Word) {
-	// TODO: Use constant time division
-	quo, rem := bits.Div(uint(hi), uint(lo), uint(y))
-	return Word(quo), Word(rem)
+func div(hi, lo, d Word) (Word, Word) {
+	var quo Word
+	hi = ctMux(ctEq(hi, d), hi, 0)
+	for i := _W - 1; i > 0; i-- {
+		j := _W - i
+		w := (hi << j) | (lo >> i)
+		sel := ctEq(w, d) | ctGt(w, d) | (hi >> i)
+		hi2 := (w - d) >> j
+		lo2 := lo - (d << i)
+		hi = ctMux(sel, hi, hi2)
+		lo = ctMux(sel, lo, lo2)
+		quo |= sel
+		quo <<= 1
+	}
+	sel := ctEq(lo, d) | ctGt(lo, d) | hi
+	quo |= sel
+	rem := ctMux(sel, lo, lo-d)
+	return quo, rem
 }
 
 // shiftAddIn calculates z = z << _W + x mod m
