@@ -117,24 +117,14 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 	}
 
 	hi := z[size-1]
-	var a1, a0, b0 Word
-	if m.leading == 0 {
-		a1 = z[size-1]
-		for i := size - 1; i > 0; i-- {
-			z[i] = z[i-1]
-		}
-		z[0] = x
-		a0 = z[size-1]
-		b0 = m.nat.limbs[size-1]
-	} else {
-		a1 = (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
-		for i := size - 1; i > 0; i-- {
-			z[i] = z[i-1]
-		}
-		z[0] = x
-		a0 = (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
-		b0 = (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
+
+	a1 := (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
+	for i := size - 1; i > 0; i-- {
+		z[i] = z[i-1]
 	}
+	z[0] = x
+	a0 := (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
+	b0 := (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
 
 	rawQ, _ := div(a1, a0, b0)
 	q := ctMux(ctEq(a1, b0), ctMux(ctEq(rawQ, 0), rawQ-1, 0), ^Word(0))
