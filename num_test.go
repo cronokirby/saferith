@@ -2,7 +2,6 @@ package safenum
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -11,7 +10,7 @@ import (
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 	var n Nat
-	n.SetUint64(r.Uint64() & 0b1)
+	n.SetUint64(r.Uint64() & 0xFF)
 	return reflect.ValueOf(n)
 }
 
@@ -19,7 +18,11 @@ func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 9)
 	r.Read(bytes)
 	var n Modulus
-	n.SetBytes(bytes)
+	var b byte
+	for b == 0 {
+		b = byte(r.Uint32() & 0b1)
+	}
+	n.SetBytes([]byte{b, 0, 0, 0, 0, 0, 0, 0, 1})
 	return reflect.ValueOf(n)
 }
 
@@ -273,10 +276,9 @@ func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	expA.Exp(&x, &a, &m)
 	expB.Exp(&x, &b, &m)
 	// Enough bits to hold the full amount
-	aPlusB.Add(&a, &b, 129)
+	aPlusB.Add(&a, &b, 128)
 	way1.ModMul(&expA, &expB, &m)
 	way2.Exp(&x, &aPlusB, &m)
-	//	fmt.Println("x", x, "a", a, "b", b, "m", m, "expA", expA, "expB", expB, "aPlusB", aPlusB, "way1", way1, "way2", way2)
 	return way1.CmpEq(&way2) == 1
 }
 
@@ -371,9 +373,16 @@ func TestModMulExamples(t *testing.T) {
 	}
 	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetUint64(1)
-	x = *x.Exp(&x, &x, &m)
+	x = *x.ModMul(&x, &x, &m)
 	z.SetUint64(1)
-	fmt.Println(x)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
+	x.SetUint64(16390320477281102916)
+	y.SetUint64(13641051446569424315)
+	x = *x.ModMul(&x, &y, &m)
+	z.SetUint64(12559215458690093993)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
