@@ -136,16 +136,8 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 		b0 = (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
 	}
 
-	var q Word
-	// TODO: After division is constant time, MUX here instead
-	if a1 >= b0 {
-		q = ^Word(0)
-	} else {
-		q, _ = div(a1, a0, b0)
-		if q != 0 {
-			q -= 1
-		}
-	}
+	rawQ, _ := div(a1, a0, b0)
+	q := ctMux(ctEq(a1, b0), ctMux(ctEq(rawQ, 0), rawQ-1, 0), ^Word(0))
 	c := mulSubVVW(z, m.nat.limbs, q)
 	under := ctGt(c, hi)
 	stillBigger := cmpGeq(z, m.nat.limbs)
