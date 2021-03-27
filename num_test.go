@@ -10,19 +10,15 @@ import (
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 	var n Nat
-	n.SetUint64(r.Uint64() & 0xFF)
+	n.SetUint64(r.Uint64())
 	return reflect.ValueOf(n)
 }
 
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 9)
+	bytes := make([]byte, 64)
 	r.Read(bytes)
 	var n Modulus
-	var b byte
-	for b == 0 {
-		b = byte(r.Uint32() & 0b1)
-	}
-	n.SetBytes([]byte{b, 0, 0, 0, 0, 0, 0, 0, 1})
+	n.SetBytes(bytes)
 	return reflect.ValueOf(n)
 }
 
@@ -276,7 +272,7 @@ func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	expA.Exp(&x, &a, &m)
 	expB.Exp(&x, &b, &m)
 	// Enough bits to hold the full amount
-	aPlusB.Add(&a, &b, 128)
+	aPlusB.Add(&a, &b, 129)
 	way1.ModMul(&expA, &expB, &m)
 	way2.Exp(&x, &aPlusB, &m)
 	return way1.CmpEq(&way2) == 1
