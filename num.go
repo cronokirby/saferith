@@ -102,17 +102,23 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 		return
 	}
 
-	scratch[0] = x
+	hi := z[size-1]
 	var a1, a0, b0 Word
 	if m.leading == 0 {
 		a1 = z[size-1]
-		copy(scratch[1:], z)
-		a0 = scratch[size-1]
+		for i := size - 1; i > 0; i-- {
+			z[i] = z[i-1]
+		}
+		z[0] = x
+		a0 = z[size-1]
 		b0 = m.nat.limbs[size-1]
 	} else {
 		a1 = (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
-		copy(scratch[1:], z)
-		a0 = (scratch[size-1] << m.leading) | (scratch[size-2] >> (_W - m.leading))
+		for i := size - 1; i > 0; i-- {
+			z[i] = z[i-1]
+		}
+		z[0] = x
+		a0 = (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
 		b0 = (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
 	}
 
@@ -126,18 +132,14 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 			q -= 1
 		}
 	}
-	c1 := mulSubVVW(scratch, m.nat.limbs, q)
-	if c1 > a1 {
-		addVV(scratch, scratch, m.nat.limbs)
-		copy(z, scratch)
-		return
-	}
-	c := subVV(z, scratch, m.nat.limbs)
-	sel := 1
-	if c <= a1-c1 {
-		sel = 0
-	}
-	constantTimeWordCopy(sel, z, scratch)
+	c := mulSubVVW(z, m.nat.limbs, q)
+	under := ctGt(c, hi)
+	stillBigger := cmpGeq(z, m.nat.limbs)
+	over := (1 ^ under) & (stillBigger | (1 ^ ctEq(c, hi)))
+	addVV(scratch, z, m.nat.limbs)
+	ctCondCopy(under, z, scratch)
+	subVV(scratch, z, m.nat.limbs)
+	ctCondCopy(over, z, scratch)
 }
 
 // Mod calculates z <- x mod m
@@ -214,8 +216,8 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	// The other case is impossible, because it would mean we have a result big
 	// enough to both overflow the addition by at least m. But, we made sure that
 	// x and y are at most m - 1, so this isn't possible.
-	selectSub := constantTimeWordEq(addCarry, subCarry)
-	constantTimeWordCopy(selectSub, z.limbs, subResult)
+	selectSub := ctEq(addCarry, subCarry)
+	ctCondCopy(selectSub, z.limbs, subResult)
 	return z
 }
 
@@ -347,23 +349,23 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 
 		uOdd := shrVU(uHalf.limbs, u.limbs, 1) >> (_W - 1)
 		addVV(uHalfAdjust.limbs, uHalf.limbs, adjust.limbs)
-		constantTimeWordCopy(int(uOdd), uHalf.limbs, uHalfAdjust.limbs)
+		ctCondCopy(uOdd, uHalf.limbs, uHalfAdjust.limbs)
 		uUnder := subVV(uMinusVHalf.limbs, u.limbs, v.limbs)
 		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.nat.limbs)
-		constantTimeWordCopy(int(uUnder), uMinusVHalf.limbs, uMinusVHalfUnder.limbs)
+		ctCondCopy(uUnder, uMinusVHalf.limbs, uMinusVHalfUnder.limbs)
 		uAdjust := shrVU(uMinusVHalf.limbs, uMinusVHalf.limbs, 1) >> (_W - 1)
 		addVV(uMinusVHalfAdjust.limbs, uMinusVHalf.limbs, adjust.limbs)
-		constantTimeWordCopy(int(uAdjust), uMinusVHalf.limbs, uMinusVHalfAdjust.limbs)
+		ctCondCopy(uAdjust, uMinusVHalf.limbs, uMinusVHalfAdjust.limbs)
 
 		vOdd := shrVU(vHalf.limbs, v.limbs, 1) >> (_W - 1)
 		addVV(vHalfAdjust.limbs, vHalf.limbs, adjust.limbs)
-		constantTimeWordCopy(int(vOdd), vHalf.limbs, vHalfAdjust.limbs)
+		ctCondCopy(vOdd, vHalf.limbs, vHalfAdjust.limbs)
 		vUnder := subVV(vMinusUHalf.limbs, v.limbs, u.limbs)
 		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.nat.limbs)
-		constantTimeWordCopy(int(vUnder), vMinusUHalf.limbs, vMinusUHalfUnder.limbs)
+		ctCondCopy(vUnder, vMinusUHalf.limbs, vMinusUHalfUnder.limbs)
 		vAdjust := shrVU(vMinusUHalf.limbs, vMinusUHalf.limbs, 1) >> (_W - 1)
 		addVV(vMinusUHalfAdjust.limbs, vMinusUHalf.limbs, adjust.limbs)
-		constantTimeWordCopy(int(vAdjust), vMinusUHalf.limbs, vMinusUHalfAdjust.limbs)
+		ctCondCopy(vAdjust, vMinusUHalf.limbs, vMinusUHalfAdjust.limbs)
 
 		// Here's the big idea:
 		//
@@ -384,19 +386,19 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 
 		// TODO: Is this the best way of making the selection matrix?
 		// Exactly one of these is going to be true, in theory
-		select1 := 1 - int(aOdd)
-		select2 := (1 - select1) & (1 - int(bOdd))
-		select3 := (1 - select1) & (1 - select2) & int(aLarger)
-		select4 := (1 - select1) & (1 - select2) & (1 - select3) & int(bLarger)
+		select1 := 1 - aOdd
+		select2 := (1 - select1) & (1 - bOdd)
+		select3 := (1 - select1) & (1 - select2) & aLarger
+		select4 := (1 - select1) & (1 - select2) & (1 - select3) & bLarger
 
-		constantTimeWordCopy(select1, a.limbs, aHalf.limbs)
-		constantTimeWordCopy(select1, u.limbs, uHalf.limbs)
-		constantTimeWordCopy(select2, b.limbs, bHalf.limbs)
-		constantTimeWordCopy(select2, v.limbs, vHalf.limbs)
-		constantTimeWordCopy(select3, a.limbs, aMinusBHalf.limbs)
-		constantTimeWordCopy(select3, u.limbs, uMinusVHalf.limbs)
-		constantTimeWordCopy(select4, b.limbs, bMinusAHalf.limbs)
-		constantTimeWordCopy(select4, v.limbs, vMinusUHalf.limbs)
+		ctCondCopy(select1, a.limbs, aHalf.limbs)
+		ctCondCopy(select1, u.limbs, uHalf.limbs)
+		ctCondCopy(select2, b.limbs, bHalf.limbs)
+		ctCondCopy(select2, v.limbs, vHalf.limbs)
+		ctCondCopy(select3, a.limbs, aMinusBHalf.limbs)
+		ctCondCopy(select3, u.limbs, uMinusVHalf.limbs)
+		ctCondCopy(select4, b.limbs, bMinusAHalf.limbs)
+		ctCondCopy(select4, v.limbs, vMinusUHalf.limbs)
 	}
 	z.limbs = u.limbs
 	return z
@@ -420,8 +422,8 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 		yi := y.limbs[i]
 		for j := 0; j < _W; j++ {
 			mulScratch.ModMul(&zScratch, &xsquared, m)
-			selectMultiply := int(yi & 1)
-			constantTimeWordCopy(selectMultiply, zScratch.limbs, mulScratch.limbs)
+			selectMultiply := yi & 1
+			ctCondCopy(selectMultiply, zScratch.limbs, mulScratch.limbs)
 			xsquared.ModMul(&xsquared, &xsquared, m)
 			yi >>= 1
 		}
@@ -430,25 +432,46 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	return z
 }
 
-func constantTimeWordEq(x, y Word) int {
+func ctEq(x, y Word) Word {
 	zero := uint64(x ^ y)
 	// TODO: Find a better way to do this
-	return subtle.ConstantTimeEq(int32(zero), 0) & subtle.ConstantTimeEq(int32(zero>>32), 0)
+	return Word(subtle.ConstantTimeEq(int32(zero), 0) & subtle.ConstantTimeEq(int32(zero>>32), 0))
 }
 
-// constantTimeWordCopy copies y into x, if v == 1, otherwise does nothing
+func ctGt(x, y Word) Word {
+	z := y - x
+	return (z ^ ((x ^ y) & (x ^ z))) >> (_W - 1)
+}
+
+func ctMux(v, x, y Word) Word {
+	mask := Word(-int64(v))
+	return x ^ (mask & (x ^ y))
+}
+
+// ctCondCopy copies y into x, if v == 1, otherwise does nothing
 //
 // Both slices must have the same length.
 //
 // LEAK: the length of the slices
 //
 // Otherwise, which branch was taken isn't leaked
-func constantTimeWordCopy(v int, x, y []Word) {
-	xmask := Word(v - 1)
-	ymask := Word(^(v - 1))
+func ctCondCopy(v Word, x, y []Word) {
+	// see ctMux
+	mask := Word(-int64(v))
 	for i := 0; i < len(x); i++ {
-		x[i] = (x[i] & xmask) | (y[i] & ymask)
+		x[i] = x[i] ^ (mask & (x[i] ^ y[i]))
 	}
+}
+
+// cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
+func cmpGeq(x []Word, y []Word) Word {
+	res := Word(1)
+	// LEAK: length of x, y
+	// OK: this should be public
+	for i := 0; i < len(x) && i < len(y); i++ {
+		res = ctMux(ctEq(x[i], y[i]), ctGt(x[i], y[i]), res)
+	}
+	return res
 }
 
 // CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
@@ -472,7 +495,7 @@ func (z *Nat) CmpEq(x *Nat) int {
 	for i := 0; i < size; i++ {
 		v |= zLimbs[i] ^ xLimbs[i]
 	}
-	return constantTimeWordEq(v, 0)
+	return int(ctEq(v, 0))
 }
 
 // FillBytes writes out the big endian bytes of a natural number.
