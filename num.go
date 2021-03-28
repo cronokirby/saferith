@@ -24,12 +24,12 @@ func ctGt(x, y Word) Word {
 	return (z ^ ((x ^ y) & (x ^ z))) >> (_W - 1)
 }
 
-// ctMux selects x if v = 0, and y otherwise
+// ctIfElse selects x if v = 1, and y otherwise
 //
 // This doesn't leak the value of any of its inputs
-func ctMux(v, x, y Word) Word {
+func ctIfElse(v, x, y Word) Word {
 	mask := Word(-int64(v))
-	return x ^ (mask & (x ^ y))
+	return y ^ (mask & (y ^ x))
 }
 
 // ctCondCopy copies y into x, if v == 1, otherwise does nothing
@@ -56,21 +56,21 @@ func ctCondCopy(v Word, x, y []Word) {
 // Unlike bits.Div, this doesn't leak anything about the inputs
 func div(hi, lo, d Word) (Word, Word) {
 	var quo Word
-	hi = ctMux(ctEq(hi, d), hi, 0)
+	hi = ctIfElse(ctEq(hi, d), 0, hi)
 	for i := _W - 1; i > 0; i-- {
 		j := _W - i
 		w := (hi << j) | (lo >> i)
 		sel := ctEq(w, d) | ctGt(w, d) | (hi >> i)
 		hi2 := (w - d) >> j
 		lo2 := lo - (d << i)
-		hi = ctMux(sel, hi, hi2)
-		lo = ctMux(sel, lo, lo2)
+		hi = ctIfElse(sel, hi2, hi)
+		lo = ctIfElse(sel, lo2, lo)
 		quo |= sel
 		quo <<= 1
 	}
 	sel := ctEq(lo, d) | ctGt(lo, d) | hi
 	quo |= sel
-	rem := ctMux(sel, lo, lo-d)
+	rem := ctIfElse(sel, lo-d, lo)
 	return quo, rem
 }
 
@@ -336,7 +336,7 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 	b0 := (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
 
 	rawQ, _ := div(a1, a0, b0)
-	q := ctMux(ctEq(a1, b0), ctMux(ctEq(rawQ, 0), rawQ-1, 0), ^Word(0))
+	q := ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
 	c := mulSubVVW(z, m.nat.limbs, q)
 	under := ctGt(c, hi)
 	stillBigger := cmpGeq(z, m.nat.limbs)
@@ -637,7 +637,7 @@ func cmpGeq(x []Word, y []Word) Word {
 	// LEAK: length of x, y
 	// OK: this should be public
 	for i := 0; i < len(x) && i < len(y); i++ {
-		res = ctMux(ctEq(x[i], y[i]), ctGt(x[i], y[i]), res)
+		res = ctIfElse(ctEq(x[i], y[i]), res, ctGt(x[i], y[i]))
 	}
 	return res
 }
