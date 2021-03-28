@@ -459,9 +459,9 @@ func TestSetBytesExamples(t *testing.T) {
 
 func TestFillBytesExamples(t *testing.T) {
 	var x Nat
-	expected := []byte{0xAA, 0xBB, 0xCC, 0xDD}
+	expected := []byte{0x00, 0x00, 0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD}
 	x.SetBytes(expected)
-	buf := make([]byte, 4)
+	buf := make([]byte, 8)
 	x.FillBytes(buf)
 	if !bytes.Equal(expected, buf) {
 		t.Errorf("%+v != %+v", expected, buf)

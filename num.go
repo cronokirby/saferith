@@ -2,7 +2,6 @@ package safenum
 
 import (
 	"crypto/subtle"
-	"math/big"
 	"math/bits"
 )
 
@@ -66,18 +65,6 @@ func (z *Nat) resizedLimbs(size int) []Word {
 		res[i] = 0
 	}
 	return res
-}
-
-func fromInt(i *big.Int) Nat {
-	var n Nat
-	n.SetBytes(i.Bytes())
-	return n
-}
-
-func (z Nat) toInt() *big.Int {
-	var ret big.Int
-	ret.SetBytes(z.Bytes())
-	return &ret
 }
 
 func div(hi, lo, d Word) (Word, Word) {
@@ -495,7 +482,20 @@ func (z *Nat) CmpEq(x *Nat) int {
 //
 // This will panic if the buffer's length cannot accomodate the capacity of the number
 func (z *Nat) FillBytes(buf []byte) []byte {
-	z.toInt().FillBytes(buf)
+	length := len(z.limbs) * _S
+	i := length
+	// LEAK: Number of limbs
+	// OK: The number of limbs is public
+	// LEAK: The addresses touched in the out array
+	// OK: Every member of out is touched
+	for _, x := range z.limbs {
+		y := x
+		for j := 0; j < _S; j++ {
+			i--
+			buf[i] = byte(y)
+			y >>= 8
+		}
+	}
 	return buf
 }
 
@@ -562,20 +562,7 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 func (z *Nat) Bytes() []byte {
 	length := len(z.limbs) * _S
 	out := make([]byte, length)
-	i := length
-	// LEAK: Number of limbs
-	// OK: The number of limbs is public
-	// LEAK: The addresses touched in the out array
-	// OK: Every member of out is touched
-	for _, x := range z.limbs {
-		y := x
-		for j := 0; j < _S; j++ {
-			i--
-			out[i] = byte(y)
-			y >>= 8
-		}
-	}
-	return out
+	return z.FillBytes(out)
 }
 
 // SetUint64 sets z to x, and returns z
