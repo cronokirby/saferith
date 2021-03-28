@@ -157,6 +157,7 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 		z.limbs[j] = xLimbs[i]
 		i--
 	}
+	// We shift in the remaining limbs, making sure to reduce modulo M each time
 	for ; i >= 0; i-- {
 		shiftAddIn(z.limbs[:size], z.limbs[size:], xLimbs[i], m)
 	}
