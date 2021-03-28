@@ -5,6 +5,78 @@ import (
 	"math/bits"
 )
 
+// Constant Time Utilities
+
+// ctEq compares x and y for equality, returning 1 if equal, and 0 otherwise
+//
+// This doesn't leak any information about either of them
+func ctEq(x, y Word) Word {
+	zero := uint64(x ^ y)
+	// TODO: Find a better way to do this
+	return Word(subtle.ConstantTimeEq(int32(zero), 0) & subtle.ConstantTimeEq(int32(zero>>32), 0))
+}
+
+// ctGt checks x > y, returning 1 or 0
+//
+// This doesn't leak any information about either of them
+func ctGt(x, y Word) Word {
+	z := y - x
+	return (z ^ ((x ^ y) & (x ^ z))) >> (_W - 1)
+}
+
+// ctMux selects x if v = 0, and y otherwise
+//
+// This doesn't leak the value of any of its inputs
+func ctMux(v, x, y Word) Word {
+	mask := Word(-int64(v))
+	return x ^ (mask & (x ^ y))
+}
+
+// ctCondCopy copies y into x, if v == 1, otherwise does nothing
+//
+// Both slices must have the same length.
+//
+// LEAK: the length of the slices
+//
+// Otherwise, which branch was taken isn't leaked
+func ctCondCopy(v Word, x, y []Word) {
+	// see ctMux
+	mask := Word(-int64(v))
+	for i := 0; i < len(x); i++ {
+		x[i] = x[i] ^ (mask & (x[i] ^ y[i]))
+	}
+}
+
+// "Missing" Functions
+// These are routines that could in theory be implemented in assembly,
+// but aren't already present in Go's big number routines
+
+// div calculates the quotient and remainder of hi:lo / d
+//
+// Unlike bits.Div, this doesn't leak anything about the inputs
+func div(hi, lo, d Word) (Word, Word) {
+	var quo Word
+	hi = ctMux(ctEq(hi, d), hi, 0)
+	for i := _W - 1; i > 0; i-- {
+		j := _W - i
+		w := (hi << j) | (lo >> i)
+		sel := ctEq(w, d) | ctGt(w, d) | (hi >> i)
+		hi2 := (w - d) >> j
+		lo2 := lo - (d << i)
+		hi = ctMux(sel, hi, hi2)
+		lo = ctMux(sel, lo, lo2)
+		quo |= sel
+		quo <<= 1
+	}
+	sel := ctEq(lo, d) | ctGt(lo, d) | hi
+	quo |= sel
+	rem := ctMux(sel, lo, lo-d)
+	return quo, rem
+}
+
+// mulSubVVW calculates z -= y * x
+//
+// This also results in a carry.
 func mulSubVVW(z, x []Word, y Word) (c Word) {
 	for i := 0; i < len(z) && i < len(x); i++ {
 		hi, lo := mulAddWWW_g(x[i], y, c)
@@ -25,17 +97,6 @@ func mulSubVVW(z, x []Word, y Word) (c Word) {
 // create the number in the first place.
 type Nat struct {
 	limbs []Word
-}
-
-// Modulus represents a natural number used for modular reduction
-//
-// Unlike with natural numbers, the number of bits need to contain the modulus
-// is assumed to be public. Operations are allowed to leak this size, and creating
-// a modulus will remove unnecessary zeros.
-type Modulus struct {
-	nat Nat
-	// the number of leading zero bits
-	leading uint
 }
 
 // ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
@@ -67,24 +128,185 @@ func (z *Nat) resizedLimbs(size int) []Word {
 	return res
 }
 
-func div(hi, lo, d Word) (Word, Word) {
-	var quo Word
-	hi = ctMux(ctEq(hi, d), hi, 0)
-	for i := _W - 1; i > 0; i-- {
-		j := _W - i
-		w := (hi << j) | (lo >> i)
-		sel := ctEq(w, d) | ctGt(w, d) | (hi >> i)
-		hi2 := (w - d) >> j
-		lo2 := lo - (d << i)
-		hi = ctMux(sel, hi, hi2)
-		lo = ctMux(sel, lo, lo2)
-		quo |= sel
-		quo <<= 1
+// FillBytes writes out the big endian bytes of a natural number.
+//
+// This will always write out the full capacity of the number, without
+// any kind trimming.
+//
+// This will panic if the buffer's length cannot accomodate the capacity of the number
+func (z *Nat) FillBytes(buf []byte) []byte {
+	length := len(z.limbs) * _S
+	i := length
+	// LEAK: Number of limbs
+	// OK: The number of limbs is public
+	// LEAK: The addresses touched in the out array
+	// OK: Every member of out is touched
+	for _, x := range z.limbs {
+		y := x
+		for j := 0; j < _S; j++ {
+			i--
+			buf[i] = byte(y)
+			y >>= 8
+		}
 	}
-	sel := ctEq(lo, d) | ctGt(lo, d) | hi
-	quo |= sel
-	rem := ctMux(sel, lo, lo-d)
-	return quo, rem
+	return buf
+}
+
+// extendFront pads the front of a slice to a certain size
+//
+// LEAK: the length of the buffer, size
+func extendFront(buf []byte, size int) []byte {
+	// LEAK: the length of the buffer
+	if len(buf) >= size {
+		return buf
+	}
+
+	shift := size - len(buf)
+	// LEAK: the capacity of the buffer
+	// OK: assuming the capacity of the buffer is related to the length,
+	// and the length is ok to leak
+	if cap(buf) < size {
+		newBuf := make([]byte, size)
+		copy(newBuf[shift:], buf)
+		return newBuf
+	}
+
+	newBuf := buf[:size]
+	copy(newBuf[shift:], buf)
+	for i := 0; i < shift; i++ {
+		newBuf[i] = 0
+	}
+	return newBuf
+}
+
+// SetBytes interprets a number in big-endian format, stores it in z, and returns z.
+//
+// The exact length of the buffer must be public information! This length also dictates
+// the capacity of the number returned, and thus the resulting timings for operations
+// involving that number.
+func (z *Nat) SetBytes(buf []byte) *Nat {
+	// We pad the front so that we have a multiple of _S
+	// Padding the front is adding extra zeros to the BE representation
+	necessary := (len(buf) + _S - 1) &^ (_S - 1)
+	// LEAK: the size of buf
+	// OK: this is public information
+	buf = extendFront(buf, necessary)
+	limbCount := necessary / _S
+	// LEAK: limbCount
+	// OK: this is derived from the length of buf, which is public
+	z.limbs = z.resizedLimbs(limbCount)
+	j := necessary
+	// LEAK: The number of limbs
+	// OK: This is public information
+	for i := 0; i < limbCount; i++ {
+		z.limbs[i] = 0
+		j -= _S
+		for k := 0; k < _S; k++ {
+			z.limbs[i] <<= 8
+			z.limbs[i] |= Word(buf[j+k])
+		}
+	}
+	return z
+}
+
+// Bytes creates a slice containing the contents of this Nat, in big endian
+//
+// This will always fill the output byte slice based on the announced length of this Nat.
+func (z *Nat) Bytes() []byte {
+	length := len(z.limbs) * _S
+	out := make([]byte, length)
+	return z.FillBytes(out)
+}
+
+// SetUint64 sets z to x, and returns z
+//
+// This will have the exact same capacity as a 64 bit number
+func (z *Nat) SetUint64(x uint64) *Nat {
+	// LEAK: Whether or not _W == 64
+	// OK: This is known in advance based on the architecture
+	if _W == 64 {
+		z.limbs = z.resizedLimbs(1)
+		z.limbs[0] = Word(x)
+	} else {
+		// This works since _W is a power of 2
+		limbCount := 64 / _W
+		z.limbs = z.resizedLimbs(limbCount)
+		for i := 0; i < limbCount; i++ {
+			z.limbs[i] = Word(x)
+			x >>= _W
+		}
+	}
+	return z
+}
+
+// Modulus represents a natural number used for modular reduction
+//
+// Unlike with natural numbers, the number of bits need to contain the modulus
+// is assumed to be public. Operations are allowed to leak this size, and creating
+// a modulus will remove unnecessary zeros.
+type Modulus struct {
+	nat Nat
+	// the number of leading zero bits
+	leading uint
+}
+
+// setLeading calculates the number of leading zeros of the top limb of m
+//
+// This leaks the value, most likely.
+func (m *Modulus) setLeading() {
+	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
+}
+
+// SetUint64 sets the modulus according to an integer
+func (z *Modulus) SetUint64(x uint64) *Modulus {
+	z.nat.SetUint64(x)
+	// edge case for 32 bit limb size
+	if _W < 64 && len(z.nat.limbs) > 1 && z.nat.limbs[1] == 0 {
+		z.nat.limbs = z.nat.limbs[:1]
+	}
+	z.setLeading()
+	return z
+}
+
+// trueSize calculates the actual size necessary for representing these limbs
+//
+// This is the size with leading zeros removed. This naturally leaks the number
+// of such zeros
+func trueSize(limbs []Word) int {
+	var size int
+	for size = len(limbs); size > 0 && limbs[size-1] == 0; size-- {
+	}
+	return size
+}
+
+// SetBytes sets the value of the modulus according to a slice of Big Endian bytes
+//
+// This will trim the modulus to only use the necessary
+func (m *Modulus) SetBytes(bytes []byte) *Modulus {
+	// TODO: You could allocate a smaller buffer to begin with, versus using the Nat method
+	m.nat.SetBytes(bytes)
+
+	m.nat.limbs = m.nat.limbs[:trueSize(m.nat.limbs)]
+	m.setLeading()
+	return m
+}
+
+// SetNat sets the value of the modulus according to a Nat
+//
+// This will leak the exact number of bits for the natural number, so this shouldn't be sensitive.
+// Using the modulus will continue to leak this.
+func (m *Modulus) SetNat(nat Nat) *Modulus {
+	// We make a copy here, to avoid any aliasing between buffers
+	size := trueSize(nat.limbs)
+	m.nat.limbs = m.nat.resizedLimbs(size)
+	copy(m.nat.limbs, nat.limbs)
+	m.setLeading()
+	return m
+}
+
+// Bytes returns the big endian bytes making up the modulus
+func (m *Modulus) Bytes() []byte {
+	return m.nat.Bytes()
 }
 
 // shiftAddIn calculates z = z << _W + x mod m
@@ -409,37 +631,6 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	return z
 }
 
-func ctEq(x, y Word) Word {
-	zero := uint64(x ^ y)
-	// TODO: Find a better way to do this
-	return Word(subtle.ConstantTimeEq(int32(zero), 0) & subtle.ConstantTimeEq(int32(zero>>32), 0))
-}
-
-func ctGt(x, y Word) Word {
-	z := y - x
-	return (z ^ ((x ^ y) & (x ^ z))) >> (_W - 1)
-}
-
-func ctMux(v, x, y Word) Word {
-	mask := Word(-int64(v))
-	return x ^ (mask & (x ^ y))
-}
-
-// ctCondCopy copies y into x, if v == 1, otherwise does nothing
-//
-// Both slices must have the same length.
-//
-// LEAK: the length of the slices
-//
-// Otherwise, which branch was taken isn't leaked
-func ctCondCopy(v Word, x, y []Word) {
-	// see ctMux
-	mask := Word(-int64(v))
-	for i := 0; i < len(x); i++ {
-		x[i] = x[i] ^ (mask & (x[i] ^ y[i]))
-	}
-}
-
 // cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
 func cmpGeq(x []Word, y []Word) Word {
 	res := Word(1)
@@ -473,174 +664,4 @@ func (z *Nat) CmpEq(x *Nat) int {
 		v |= zLimbs[i] ^ xLimbs[i]
 	}
 	return int(ctEq(v, 0))
-}
-
-// FillBytes writes out the big endian bytes of a natural number.
-//
-// This will always write out the full capacity of the number, without
-// any kind trimming.
-//
-// This will panic if the buffer's length cannot accomodate the capacity of the number
-func (z *Nat) FillBytes(buf []byte) []byte {
-	length := len(z.limbs) * _S
-	i := length
-	// LEAK: Number of limbs
-	// OK: The number of limbs is public
-	// LEAK: The addresses touched in the out array
-	// OK: Every member of out is touched
-	for _, x := range z.limbs {
-		y := x
-		for j := 0; j < _S; j++ {
-			i--
-			buf[i] = byte(y)
-			y >>= 8
-		}
-	}
-	return buf
-}
-
-// extendFront pads the front of a slice to a certain size
-//
-// LEAK: the length of the buffer, size
-func extendFront(buf []byte, size int) []byte {
-	// LEAK: the length of the buffer
-	if len(buf) >= size {
-		return buf
-	}
-
-	shift := size - len(buf)
-	// LEAK: the capacity of the buffer
-	// OK: assuming the capacity of the buffer is related to the length,
-	// and the length is ok to leak
-	if cap(buf) < size {
-		newBuf := make([]byte, size)
-		copy(newBuf[shift:], buf)
-		return newBuf
-	}
-
-	newBuf := buf[:size]
-	copy(newBuf[shift:], buf)
-	for i := 0; i < shift; i++ {
-		newBuf[i] = 0
-	}
-	return newBuf
-}
-
-// SetBytes interprets a number in big-endian format, stores it in z, and returns z.
-//
-// The exact length of the buffer must be public information! This length also dictates
-// the capacity of the number returned, and thus the resulting timings for operations
-// involving that number.
-func (z *Nat) SetBytes(buf []byte) *Nat {
-	// We pad the front so that we have a multiple of _S
-	// Padding the front is adding extra zeros to the BE representation
-	necessary := (len(buf) + _S - 1) &^ (_S - 1)
-	// LEAK: the size of buf
-	// OK: this is public information
-	buf = extendFront(buf, necessary)
-	limbCount := necessary / _S
-	// LEAK: limbCount
-	// OK: this is derived from the length of buf, which is public
-	z.limbs = z.resizedLimbs(limbCount)
-	j := necessary
-	// LEAK: The number of limbs
-	// OK: This is public information
-	for i := 0; i < limbCount; i++ {
-		z.limbs[i] = 0
-		j -= _S
-		for k := 0; k < _S; k++ {
-			z.limbs[i] <<= 8
-			z.limbs[i] |= Word(buf[j+k])
-		}
-	}
-	return z
-}
-
-// Bytes creates a slice containing the contents of this Nat, in big endian
-//
-// This will always fill the output byte slice based on the announced length of this Nat.
-func (z *Nat) Bytes() []byte {
-	length := len(z.limbs) * _S
-	out := make([]byte, length)
-	return z.FillBytes(out)
-}
-
-// SetUint64 sets z to x, and returns z
-//
-// This will have the exact same capacity as a 64 bit number
-func (z *Nat) SetUint64(x uint64) *Nat {
-	// LEAK: Whether or not _W == 64
-	// OK: This is known in advance based on the architecture
-	if _W == 64 {
-		z.limbs = z.resizedLimbs(1)
-		z.limbs[0] = Word(x)
-	} else {
-		// This works since _W is a power of 2
-		limbCount := 64 / _W
-		z.limbs = z.resizedLimbs(limbCount)
-		for i := 0; i < limbCount; i++ {
-			z.limbs[i] = Word(x)
-			x >>= _W
-		}
-	}
-	return z
-}
-
-// setLeading calculates the number of leading zeros of the top limb of m
-//
-// This leaks the value, most likely.
-func (m *Modulus) setLeading() {
-	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
-}
-
-// SetUint64 sets the modulus according to an integer
-func (z *Modulus) SetUint64(x uint64) *Modulus {
-	z.nat.SetUint64(x)
-	// edge case for 32 bit limb size
-	if _W < 64 && len(z.nat.limbs) > 1 && z.nat.limbs[1] == 0 {
-		z.nat.limbs = z.nat.limbs[:1]
-	}
-	z.setLeading()
-	return z
-}
-
-// trueSize calculates the actual size necessary for representing these limbs
-//
-// This is the size with leading zeros removed. This naturally leaks the number
-// of such zeros
-func trueSize(limbs []Word) int {
-	var size int
-	for size = len(limbs); size > 0 && limbs[size-1] == 0; size-- {
-	}
-	return size
-}
-
-// SetBytes sets the value of the modulus according to a slice of Big Endian bytes
-//
-// This will trim the modulus to only use the necessary
-func (m *Modulus) SetBytes(bytes []byte) *Modulus {
-	// TODO: You could allocate a smaller buffer to begin with, versus using the Nat method
-	m.nat.SetBytes(bytes)
-
-	m.nat.limbs = m.nat.limbs[:trueSize(m.nat.limbs)]
-	m.setLeading()
-	return m
-}
-
-// SetNat sets the value of the modulus according to a Nat
-//
-// This will leak the exact number of bits for the natural number, so this shouldn't be sensitive.
-// Using the modulus will continue to leak this.
-func (m *Modulus) SetNat(nat Nat) *Modulus {
-	// We make a copy here, to avoid any aliasing between buffers
-	size := trueSize(nat.limbs)
-	m.nat.limbs = m.nat.resizedLimbs(size)
-	copy(m.nat.limbs, nat.limbs)
-	m.setLeading()
-	return m
-}
-
-// Bytes returns the big endian bytes making up the modulus
-func (m *Modulus) Bytes() []byte {
-	return m.nat.Bytes()
 }
