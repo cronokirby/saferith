@@ -1,7 +1,6 @@
 package safenum
 
 import (
-	"crypto/subtle"
 	"math/bits"
 )
 
@@ -12,8 +11,14 @@ import (
 // This doesn't leak any information about either of them
 func ctEq(x, y Word) Word {
 	zero := uint64(x ^ y)
-	// TODO: Find a better way to do this
-	return Word(subtle.ConstantTimeEq(int32(zero), 0) & subtle.ConstantTimeEq(int32(zero>>32), 0))
+	// The usual trick in Go's subtle library doesn't work for the case where
+	// x and y differ in every single bit. Instead, we do the same testing mechanism,
+	// but over each "half" of the number
+	//
+	// I'm not sure if this is optimal.
+	hiZero := ((zero >> 32) - 1) >> 63
+	loZero := ((zero & 0xFF_FF_FF_FF) - 1) >> 63
+	return Word(hiZero & loZero)
 }
 
 // ctGt checks x > y, returning 1 or 0
