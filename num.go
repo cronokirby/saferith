@@ -145,6 +145,9 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	xLimbs := x.limbs
 	z.limbs = make([]Word, 2*size)
+	// Multiple times in this section:
+	// LEAK: the length of x
+	// OK: this is public information
 	i := len(xLimbs) - 1
 	// We can inject at least size - 1 limbs while staying under m
 	// Thus, we start injecting from index size - 2
