@@ -225,13 +225,13 @@ func _benchmarkModMulNat(m *Nat, b *testing.B) {
 func BenchmarkModMulNat(b *testing.B) {
 	var m Nat
 	m.SetUint64(13)
-	_benchmarkModAddNat(&m, b)
+	_benchmarkModMulNat(&m, b)
 }
 
 func BenchmarkLargeModMulNat(b *testing.B) {
 	var m Nat
 	m.SetBytes(largePrime())
-	_benchmarkModAddNat(&m, b)
+	_benchmarkModMulNat(&m, b)
 }
 
 func _benchmarkModNat(m *Nat, b *testing.B) {
