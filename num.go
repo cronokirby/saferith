@@ -263,14 +263,15 @@ func (m *Modulus) setLeading() {
 }
 
 // SetUint64 sets the modulus according to an integer
-func (z *Modulus) SetUint64(x uint64) *Modulus {
-	z.nat.SetUint64(x)
+func ModulusFromUint64(x uint64) Modulus {
+	var m Modulus
+	m.nat.SetUint64(x)
 	// edge case for 32 bit limb size
-	if _W < 64 && len(z.nat.limbs) > 1 && z.nat.limbs[1] == 0 {
-		z.nat.limbs = z.nat.limbs[:1]
+	if _W < 64 && len(m.nat.limbs) > 1 && m.nat.limbs[1] == 0 {
+		m.nat.limbs = m.nat.limbs[:1]
 	}
-	z.setLeading()
-	return z
+	m.setLeading()
+	return m
 }
 
 // trueSize calculates the actual size necessary for representing these limbs
@@ -284,10 +285,12 @@ func trueSize(limbs []Word) int {
 	return size
 }
 
-// SetBytes sets the value of the modulus according to a slice of Big Endian bytes
+// FromBytes creates a new Modulus, converting from big endian bytes
 //
-// This will trim the modulus to only use the necessary
-func (m *Modulus) SetBytes(bytes []byte) *Modulus {
+// This function will remove leading zeros, thus leaking the true size of the modulus.
+// See the documentation for the Modulus type, for more information about this contract.
+func ModulusFromBytes(bytes []byte) Modulus {
+	var m Modulus
 	// TODO: You could allocate a smaller buffer to begin with, versus using the Nat method
 	m.nat.SetBytes(bytes)
 
@@ -296,11 +299,13 @@ func (m *Modulus) SetBytes(bytes []byte) *Modulus {
 	return m
 }
 
-// SetNat sets the value of the modulus according to a Nat
+// FromNat creates a new Modulus, using the value of a Nat
 //
-// This will leak the exact number of bits for the natural number, so this shouldn't be sensitive.
-// Using the modulus will continue to leak this.
-func (m *Modulus) SetNat(nat Nat) *Modulus {
+// This will leak the true size of this natural number. Because of this,
+// the true size of the number should not be sensitive information. This is
+// a stronger requirement than we usually have for Nat.
+func ModulusFromNat(nat Nat) Modulus {
+	var m Modulus
 	// We make a copy here, to avoid any aliasing between buffers
 	size := trueSize(nat.limbs)
 	m.nat.limbs = m.nat.resizedLimbs(size)

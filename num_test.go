@@ -17,8 +17,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 64)
 	r.Read(bytes)
-	var n Modulus
-	n.SetBytes(bytes)
+	n := ModulusFromBytes(bytes)
 	return reflect.ValueOf(n)
 }
 
@@ -150,7 +149,7 @@ func testModAndTruncationMatch(a Nat) bool {
 	var m Modulus
 	for _, x := range []uint{48, 32, 16, 8} {
 		way1.Add(&a, &zero, x)
-		m.SetUint64(1 << x)
+		m = ModulusFromUint64(1 << x)
 		way2.Mod(&a, &m)
 		if way1.CmpEq(&way2) != 1 {
 			return false
@@ -246,7 +245,7 @@ func testModInverseMultiplication(a Nat) bool {
 	one.SetUint64(1)
 	var m Modulus
 	for _, x := range []uint64{3, 5, 7, 13, 19, 47, 97} {
-		m.SetUint64(x)
+		m = ModulusFromUint64(x)
 		scratch.Mod(&a, &m)
 		if scratch.CmpEq(&zero) == 1 {
 			continue
@@ -344,9 +343,8 @@ func TestMulExamples(t *testing.T) {
 }
 
 func TestModAddExamples(t *testing.T) {
+	m := ModulusFromUint64(13)
 	var x, y, z Nat
-	var m Modulus
-	m.SetUint64(13)
 	x.SetUint64(40)
 	y.SetUint64(40)
 	x = *x.ModAdd(&x, &y, &m)
@@ -358,8 +356,7 @@ func TestModAddExamples(t *testing.T) {
 
 func TestModMulExamples(t *testing.T) {
 	var x, y, z Nat
-	var m Modulus
-	m.SetUint64(13)
+	m := ModulusFromUint64(13)
 	x.SetUint64(40)
 	y.SetUint64(40)
 	x = *x.ModMul(&x, &y, &m)
@@ -367,14 +364,14 @@ func TestModMulExamples(t *testing.T) {
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
-	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
+	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetUint64(1)
 	x = *x.ModMul(&x, &x, &m)
 	z.SetUint64(1)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
-	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
+	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetUint64(16390320477281102916)
 	y.SetUint64(13641051446569424315)
 	x = *x.ModMul(&x, &y, &m)
@@ -387,14 +384,13 @@ func TestModMulExamples(t *testing.T) {
 func TestModExamples(t *testing.T) {
 	var x, test Nat
 	x.SetUint64(40)
-	var m Modulus
-	m.SetUint64(13)
+	m := ModulusFromUint64(13)
 	x.Mod(&x, &m)
 	test.SetUint64(1)
 	if x.CmpEq(&test) != 1 {
 		t.Errorf("%+v != %+v", x, test)
 	}
-	m.SetBytes([]byte{13, 0, 0, 0, 0, 0, 0, 0, 1})
+	m = ModulusFromBytes([]byte{13, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetBytes([]byte{41, 0, 0, 0, 0, 0, 0, 0, 0})
 	x.Mod(&x, &m)
 	test.SetBytes([]byte{1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD})
@@ -406,15 +402,14 @@ func TestModExamples(t *testing.T) {
 func TestModInverseExamples(t *testing.T) {
 	var x, z Nat
 	x.SetUint64(2)
-	var m Modulus
-	m.SetUint64(13)
+	m := ModulusFromUint64(13)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(7)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(16359684999990746055)
-	m.SetUint64(7)
+	m = ModulusFromUint64(7)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(3)
 	if x.CmpEq(&z) != 1 {
@@ -426,14 +421,13 @@ func TestExpExamples(t *testing.T) {
 	var x, y, z Nat
 	x.SetUint64(3)
 	y.SetUint64(345)
-	var m Modulus
-	m.SetUint64(13)
+	m := ModulusFromUint64(13)
 	x = *x.Exp(&x, &y, &m)
 	z.SetUint64(1)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
-	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
+	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetUint64(1)
 	y.SetUint64(2)
 	x = *x.Exp(&x, &y, &m)
