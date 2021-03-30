@@ -253,13 +253,35 @@ type Modulus struct {
 	nat Nat
 	// the number of leading zero bits
 	leading uint
+	// The inverse of the least significant limb, modulo W
+	m0inv Word
 }
 
-// setLeading calculates the number of leading zeros of the top limb of m
+// invertModW calculates x^-1 mod _W
+func invertModW(x Word) Word {
+	y := x
+	// This is enough for 64 bits, and the extra iteration is not that costly for 32
+	for i := 0; i < 5; i++ {
+		y = y * (2 - x*y)
+	}
+	return y
+}
+
+// precomputeValues calculates the desirable modulus fields in advance
 //
-// This leaks the value, most likely.
-func (m *Modulus) setLeading() {
+// This sets the leading number of bits, leaking the true bit size of m,
+// as well as the inverse of the least significant limb (without leaking it).
+//
+// This will also do integrity checks, namely that the modulus isn't empty or even
+func (m *Modulus) precomputeValues() {
+	if len(m.nat.limbs) < 1 {
+		panic("Modulus is empty")
+	}
+	if m.nat.limbs[0]&1 == 0 {
+		panic("Modulus is even")
+	}
 	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
+	m.m0inv = invertModW(m.nat.limbs[0])
 }
 
 // SetUint64 sets the modulus according to an integer
@@ -270,7 +292,7 @@ func ModulusFromUint64(x uint64) Modulus {
 	if _W < 64 && len(m.nat.limbs) > 1 && m.nat.limbs[1] == 0 {
 		m.nat.limbs = m.nat.limbs[:1]
 	}
-	m.setLeading()
+	m.precomputeValues()
 	return m
 }
 
@@ -295,7 +317,7 @@ func ModulusFromBytes(bytes []byte) Modulus {
 	m.nat.SetBytes(bytes)
 
 	m.nat.limbs = m.nat.limbs[:trueSize(m.nat.limbs)]
-	m.setLeading()
+	m.precomputeValues()
 	return m
 }
 
@@ -310,7 +332,7 @@ func ModulusFromNat(nat Nat) Modulus {
 	size := trueSize(nat.limbs)
 	m.nat.limbs = m.nat.resizedLimbs(size)
 	copy(m.nat.limbs, nat.limbs)
-	m.setLeading()
+	m.precomputeValues()
 	return m
 }
 

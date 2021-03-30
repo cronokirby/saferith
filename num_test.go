@@ -17,6 +17,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 64)
 	r.Read(bytes)
+	bytes[len(bytes)-1] |= 1
 	n := ModulusFromBytes(bytes)
 	return reflect.ValueOf(n)
 }
@@ -132,28 +133,6 @@ func testMulOneIdentity(n Nat) bool {
 
 func TestMulOneIdentity(t *testing.T) {
 	err := quick.Check(testMulOneIdentity, &quick.Config{})
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func testModAndTruncationMatch(a Nat) bool {
-	var way1, way2, zero Nat
-	zero.SetUint64(0)
-	var m Modulus
-	for _, x := range []uint{48, 32, 16, 8} {
-		way1.Add(&a, &zero, x)
-		m = ModulusFromUint64(1 << x)
-		way2.Mod(&a, &m)
-		if way1.CmpEq(&way2) != 1 {
-			return false
-		}
-	}
-	return true
-}
-
-func TestModAndTruncationMatch(t *testing.T) {
-	err := quick.Check(testModAndTruncationMatch, &quick.Config{})
 	if err != nil {
 		t.Error(err)
 	}
