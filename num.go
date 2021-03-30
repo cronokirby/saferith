@@ -486,6 +486,69 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 	return z
 }
 
+// Exp calculates z <- x^y mod m
+//
+// The capacity of the resulting number matches the capacity of the modulus
+func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
+	limbCount := len(m.nat.limbs)
+	var mulScratch, xsquared, zScratch Nat
+	xsquared.limbs = make([]Word, limbCount)
+	zScratch.limbs = make([]Word, limbCount)
+	zScratch.limbs[0] = 1
+	// LEAK: limbCount, x's length
+	// OK: both should be public information
+	copy(xsquared.limbs, x.limbs)
+	// LEAK: y's length
+	// OK: this should be public
+	for i := 0; i < len(y.limbs); i++ {
+		yi := y.limbs[i]
+		for j := 0; j < _W; j++ {
+			mulScratch.ModMul(&zScratch, &xsquared, m)
+			selectMultiply := yi & 1
+			ctCondCopy(selectMultiply, zScratch.limbs, mulScratch.limbs)
+			xsquared.ModMul(&xsquared, &xsquared, m)
+			yi >>= 1
+		}
+	}
+	z.limbs = zScratch.limbs
+	return z
+}
+
+// cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
+func cmpGeq(x []Word, y []Word) Word {
+	res := Word(1)
+	// LEAK: length of x, y
+	// OK: this should be public
+	for i := 0; i < len(x) && i < len(y); i++ {
+		res = ctIfElse(ctEq(x[i], y[i]), res, ctGt(x[i], y[i]))
+	}
+	return res
+}
+
+// CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
+func (z *Nat) CmpEq(x *Nat) int {
+	// Rough Idea: Resize both slices to the maximum length, then compare
+	// using that length
+
+	// LEAK: z's length, x's length, the maximum
+	// OK: These should be public information
+	size := len(x.limbs)
+	zLen := len(z.limbs)
+	if zLen > size {
+		size = zLen
+	}
+	zLimbs := z.resizedLimbs(size)
+	xLimbs := x.resizedLimbs(size)
+
+	var v Word
+	// LEAK: size
+	// OK: this was calculated using the length of x and z, both public
+	for i := 0; i < size; i++ {
+		v |= zLimbs[i] ^ xLimbs[i]
+	}
+	return int(ctEq(v, 0))
+}
+
 // ModInverse calculates z <- x^-1 mod m
 //
 // This will produce nonsense if the modulus is even.
@@ -611,67 +674,4 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	}
 	z.limbs = u.limbs
 	return z
-}
-
-// Exp calculates z <- x^y mod m
-//
-// The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
-	limbCount := len(m.nat.limbs)
-	var mulScratch, xsquared, zScratch Nat
-	xsquared.limbs = make([]Word, limbCount)
-	zScratch.limbs = make([]Word, limbCount)
-	zScratch.limbs[0] = 1
-	// LEAK: limbCount, x's length
-	// OK: both should be public information
-	copy(xsquared.limbs, x.limbs)
-	// LEAK: y's length
-	// OK: this should be public
-	for i := 0; i < len(y.limbs); i++ {
-		yi := y.limbs[i]
-		for j := 0; j < _W; j++ {
-			mulScratch.ModMul(&zScratch, &xsquared, m)
-			selectMultiply := yi & 1
-			ctCondCopy(selectMultiply, zScratch.limbs, mulScratch.limbs)
-			xsquared.ModMul(&xsquared, &xsquared, m)
-			yi >>= 1
-		}
-	}
-	z.limbs = zScratch.limbs
-	return z
-}
-
-// cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
-func cmpGeq(x []Word, y []Word) Word {
-	res := Word(1)
-	// LEAK: length of x, y
-	// OK: this should be public
-	for i := 0; i < len(x) && i < len(y); i++ {
-		res = ctIfElse(ctEq(x[i], y[i]), res, ctGt(x[i], y[i]))
-	}
-	return res
-}
-
-// CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
-func (z *Nat) CmpEq(x *Nat) int {
-	// Rough Idea: Resize both slices to the maximum length, then compare
-	// using that length
-
-	// LEAK: z's length, x's length, the maximum
-	// OK: These should be public information
-	size := len(x.limbs)
-	zLen := len(z.limbs)
-	if zLen > size {
-		size = zLen
-	}
-	zLimbs := z.resizedLimbs(size)
-	xLimbs := x.resizedLimbs(size)
-
-	var v Word
-	// LEAK: size
-	// OK: this was calculated using the length of x and z, both public
-	for i := 0; i < size; i++ {
-		v |= zLimbs[i] ^ xLimbs[i]
-	}
-	return int(ctEq(v, 0))
 }
