@@ -29,10 +29,7 @@ func testAddZeroIdentity(n Nat) bool {
 		return false
 	}
 	x.Add(&zero, &n, 128)
-	if n.CmpEq(&x) != 1 {
-		return false
-	}
-	return true
+	return n.CmpEq(&x) == 1
 }
 
 func TestAddZeroIdentity(t *testing.T) {
@@ -130,10 +127,7 @@ func testMulOneIdentity(n Nat) bool {
 		return false
 	}
 	x.Mul(&one, &n, 128)
-	if n.CmpEq(&x) != 1 {
-		return false
-	}
-	return true
+	return n.CmpEq(&x) == 1
 }
 
 func TestMulOneIdentity(t *testing.T) {
