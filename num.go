@@ -464,6 +464,10 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	addVV(z.limbs, xLimbs, yLimbs)
 	// Now, we need to truncate the last limb
 	bitsToKeep := cap % _W
+	// Checking a function of the cap is ok
+	if bitsToKeep == 0 {
+		return z
+	}
 	mask := ^(^Word(0) << bitsToKeep)
 	// LEAK: the size of z (since we're making an extra access at the end)
 	// OK: this is public information, since cap is public
@@ -669,18 +673,21 @@ func (z *Nat) CmpEq(x *Nat) int {
 	return int(ctEq(v, 0))
 }
 
-// ModInverse calculates z <- x^-1 mod m
+// modInverse calculates the inverse of a reduced x modulo m
 //
-// This will produce nonsense if the modulus is even.
+// This assumes that m is an odd number, but not that it's truncated
+// to its true size. This routine will only leak the announced sizes of
+// x and m.
 //
-// The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
-	limbCount := len(m.nat.limbs)
+// We also assume that x is already reduced modulo m
+func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
+	limbCount := len(m.limbs)
 
 	// aHalf <- a / 2
 	// aMinusBHalf <- (a - b) / 2
 	var a, aHalf, aMinusBHalf Nat
-	a.Mod(x, m)
+	a.limbs = make([]Word, limbCount)
+	copy(a.limbs, x.limbs)
 	aHalf.limbs = make([]Word, limbCount)
 	aMinusBHalf.limbs = make([]Word, limbCount)
 
@@ -688,7 +695,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	// bMinusAHalf <- (b - a) / 2
 	var b, bHalf, bMinusAHalf Nat
 	b.limbs = make([]Word, limbCount)
-	copy(b.limbs, m.nat.limbs)
+	copy(b.limbs, m.limbs)
 	bHalf.limbs = make([]Word, limbCount)
 	bMinusAHalf.limbs = make([]Word, limbCount)
 
@@ -726,7 +733,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	// We just want to add 1 to m, and then shift down, so we need to have an extra
 	// bit of capacity in case adding 1 to m needs an extra limb. I guess this is necessary
 	// e.g. you're using a mersenne prime as a modulus?
-	adjust.Add(&u, &m.nat, _W*uint(limbCount)+1)
+	adjust.Add(&u, m, _W*uint(limbCount)+1)
 	shrVU(adjust.limbs, adjust.limbs, 1)
 	adjust.limbs = adjust.limbs[:limbCount]
 
@@ -743,7 +750,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 		addVV(uHalfAdjust.limbs, uHalf.limbs, adjust.limbs)
 		ctCondCopy(uOdd, uHalf.limbs, uHalfAdjust.limbs)
 		uUnder := subVV(uMinusVHalf.limbs, u.limbs, v.limbs)
-		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.nat.limbs)
+		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.limbs)
 		ctCondCopy(uUnder, uMinusVHalf.limbs, uMinusVHalfUnder.limbs)
 		uAdjust := shrVU(uMinusVHalf.limbs, uMinusVHalf.limbs, 1) >> (_W - 1)
 		addVV(uMinusVHalfAdjust.limbs, uMinusVHalf.limbs, adjust.limbs)
@@ -753,7 +760,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 		addVV(vHalfAdjust.limbs, vHalf.limbs, adjust.limbs)
 		ctCondCopy(vOdd, vHalf.limbs, vHalfAdjust.limbs)
 		vUnder := subVV(vMinusUHalf.limbs, v.limbs, u.limbs)
-		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.nat.limbs)
+		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.limbs)
 		ctCondCopy(vUnder, vMinusUHalf.limbs, vMinusUHalfUnder.limbs)
 		vAdjust := shrVU(vMinusUHalf.limbs, vMinusUHalf.limbs, 1) >> (_W - 1)
 		addVV(vMinusUHalfAdjust.limbs, vMinusUHalf.limbs, adjust.limbs)
@@ -793,5 +800,71 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 		ctCondCopy(select4, v.limbs, vMinusUHalf.limbs)
 	}
 	z.limbs = u.limbs
+	return z
+}
+
+// ModInverse calculates z <- x^-1 mod m
+//
+// This will produce nonsense if the modulus is even.
+//
+// The capacity of the resulting number matches the capacity of the modulus
+func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
+	z.Mod(x, m)
+	return z.modInverse(z, &m.nat)
+}
+
+// divDouble calculates x / d, assuming x has twice the length of d
+//
+// This only leaks the public lengths of both of these.
+//
+// out should be a buffer the size of d, and can alias x
+func divDouble(x []Word, d []Word, out []Word) {
+	size := len(d)
+	r := make([]Word, size)
+	scratch := make([]Word, size)
+	for i := len(x) - 1; i >= 0; i-- {
+		// out can alias x, because we recover x[i] early
+		xi := x[i]
+		out[i] = 0
+		for j := _W - 1; j >= 0; j-- {
+			xij := (xi >> j) & 1
+			shiftCarry := shlVU(r, r, 1)
+			r[0] |= xij
+			subCarry := subVV(scratch, r, d)
+			sel := ctEq(shiftCarry, subCarry)
+			ctCondCopy(sel, r, scratch)
+			out[i] = ((out[i] << 1) | sel)
+		}
+	}
+}
+
+// ModInverseEven calculates the modular inverse of x, mod m
+//
+// This routine will work even if m is an even number, unlike ModInverse.
+// Furthermore, it doesn't require the modulus to be truncated to its true size, and
+// will only leak information about the public sizes of its inputs. It is slower
+// than the standard routine though.
+//
+// This function assumes that x has an inverse modulo m, naturally
+func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
+	size := len(m.limbs)
+	xLimbs := x.limbs
+	if z == x {
+		xLimbs = make([]Word, len(x.limbs))
+		copy(xLimbs, x.limbs)
+	}
+	if z == m {
+		mLimbs := make([]Word, len(m.limbs))
+		copy(mLimbs, m.limbs)
+		m.limbs = mLimbs
+	}
+	z.modInverse(m, x)
+	z.Mul(z, m, uint(2*size*_W))
+	z.limbs = z.resizedLimbs(2 * size)
+	subVW(z.limbs, z.limbs, 1)
+	divDouble(z.limbs, xLimbs, z.limbs)
+	out := make([]Word, size)
+	subVV(out, m.limbs, z.limbs[:size])
+	z.limbs = out
 	return z
 }

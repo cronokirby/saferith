@@ -444,3 +444,33 @@ func TestBytesExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, out)
 	}
 }
+
+func TestModInverseEvenExamples(t *testing.T) {
+	var z, x, m Nat
+	x.SetUint64(9)
+	m.SetUint64(10)
+	x.ModInverseEven(&x, &m)
+	z.SetUint64(9)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(19)
+	x.ModInverseEven(&x, &m)
+	z.SetUint64(9)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(99)
+	x.ModInverseEven(&x, &m)
+	z.SetUint64(9)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(999)
+	m.SetUint64(1000)
+	x.ModInverseEven(&x, &m)
+	z.SetUint64(999)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
