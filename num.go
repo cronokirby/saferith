@@ -532,11 +532,8 @@ func montgomeryMul(x []Word, y []Word, d []Word, scratch []Word, m *Modulus) {
 		d[size-1] = z.w0
 		dh = z.w1
 	}
-	dhIsZero := ctEq(dh, 0)
-	dGreaterThanM := cmpGeq(d, m.nat.limbs)
-	subVV(scratch, d, m.nat.limbs)
-	sel := (1 ^ dhIsZero) | dGreaterThanM
-	ctCondCopy(sel, d, scratch)
+	c := subVV(scratch, d, m.nat.limbs)
+	ctCondCopy(ctEq(dh, c), d, scratch)
 }
 
 // ModMul calculates z <- x * y mod m
