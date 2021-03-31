@@ -545,13 +545,18 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	var yModM Nat
 	yModM.Mod(y, m)
-	z.Mod(x, m)
+	// The idea is to position x after size zeros, making modular reduction
+	// also calculate the montgomery representation
+	z.limbs = z.resizedLimbs(2 * size)
+	copy(z.limbs[size:], x.limbs)
+	for i := 0; i < size; i++ {
+		z.limbs[i] = 0
+	}
+	z.Mod(z, m)
 	z.limbs = z.resizedLimbs(2 * size)
 
 	zLimbs := z.limbs[:size]
 	scratch := z.limbs[size:]
-
-	montgomeryRepresentation(zLimbs, scratch, m)
 	montgomeryMul(zLimbs, yModM.limbs, zLimbs, scratch, m)
 
 	z.limbs = zLimbs
