@@ -505,53 +505,54 @@ func tripleFromMul(a Word, b Word) triple {
 //
 // LEAK: the size of the modulus
 //
-// d, x, y must have the same length as the modulus, and be reduced already.
-func montgomeryMul(x []Word, y []Word, d []Word, scratch []Word, m *Modulus) {
+// out, x, y must have the same length as the modulus, and be reduced already.
+//
+// out can alias x and y, but not scratch
+func montgomeryMul(x []Word, y []Word, out []Word, scratch []Word, m *Modulus) {
 	size := len(m.nat.limbs)
 
 	for i := 0; i < size; i++ {
-		d[i] = 0
+		scratch[i] = 0
 	}
 	dh := Word(0)
 	for i := 0; i < size; i++ {
-		f := (d[0] + x[i]*y[0]) * m.m0inv
+		f := (scratch[0] + x[i]*y[0]) * m.m0inv
 		var c triple
 		for j := 0; j < size; j++ {
-			z := triple{w0: d[j], w1: 0, w2: 0}
+			z := triple{w0: scratch[j], w1: 0, w2: 0}
 			z.add(tripleFromMul(x[i], y[j]))
 			z.add(tripleFromMul(f, m.nat.limbs[j]))
 			z.add(c)
 			if j > 0 {
-				d[j-1] = z.w0
+				scratch[j-1] = z.w0
 			}
 			c.w0 = z.w1
 			c.w1 = z.w2
 		}
 		z := triple{w0: dh, w1: 0, w2: 0}
 		z.add(c)
-		d[size-1] = z.w0
+		scratch[size-1] = z.w0
 		dh = z.w1
 	}
-	c := subVV(scratch, d, m.nat.limbs)
-	ctCondCopy(ctEq(dh, c), d, scratch)
+	c := subVV(out, scratch, m.nat.limbs)
+	ctCondCopy(1^ctEq(dh, c), out, scratch)
 }
 
 // ModMul calculates z <- x * y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
-	var xModM, yModM Nat
-	xModM.Mod(x, m)
-	yModM.Mod(y, m)
-
 	size := len(m.nat.limbs)
-	z.limbs = make([]Word, 2*size)
+	var yModM Nat
+	yModM.Mod(y, m)
+	z.Mod(x, m)
+	z.limbs = z.resizedLimbs(2 * size)
 
 	zLimbs := z.limbs[:size]
 	scratch := z.limbs[size:]
 
-	montgomeryRepresentation(xModM.limbs, scratch, m)
-	montgomeryMul(xModM.limbs, yModM.limbs, zLimbs, scratch, m)
+	montgomeryRepresentation(zLimbs, scratch, m)
+	montgomeryMul(zLimbs, yModM.limbs, zLimbs, scratch, m)
 
 	z.limbs = zLimbs
 	return z
@@ -589,31 +590,37 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
-	scratch := make([]Word, 3*size)
-	zLimbs := scratch[:size]
-	zLimbs[0] = 1
-	scratchA := scratch[size : 2*size]
-	scratchB := scratch[2*size:]
+
+	// We create a new nat for this operation, so we only worry about aliasing y
 	var xsquared Nat
 	xsquared.Mod(x, m)
+
+	yLimbs := y.limbs
+	if z == y {
+		yLimbs = make([]Word, size)
+		copy(yLimbs, y.limbs)
+	}
+
+	scratch := z.resizedLimbs(3 * size)
+	z.limbs = scratch[:size]
+	z.limbs[0] = 1
+	scratchA := scratch[size : 2*size]
+	scratchB := scratch[2*size:]
+
 	montgomeryRepresentation(xsquared.limbs, scratchA, m)
-	// LEAK: limbCount, x's length
-	// OK: both should be public information
-	copy(xsquared.limbs, x.limbs)
+
 	// LEAK: y's length
 	// OK: this should be public
-	for i := 0; i < len(y.limbs); i++ {
-		yi := y.limbs[i]
+	for i := 0; i < len(yLimbs); i++ {
+		yi := yLimbs[i]
 		for j := 0; j < _W; j++ {
-			montgomeryMul(zLimbs, xsquared.limbs, scratchA, scratchB, m)
+			montgomeryMul(z.limbs, xsquared.limbs, scratchA, scratchB, m)
 			selectMultiply := yi & 1
-			ctCondCopy(selectMultiply, zLimbs, scratchA)
-			montgomeryMul(xsquared.limbs, xsquared.limbs, scratchA, scratchB, m)
-			copy(xsquared.limbs, scratchA)
+			ctCondCopy(selectMultiply, z.limbs, scratchA)
+			montgomeryMul(xsquared.limbs, xsquared.limbs, xsquared.limbs, scratchB, m)
 			yi >>= 1
 		}
 	}
-	z.limbs = zLimbs
 	return z
 }
 
