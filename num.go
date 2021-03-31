@@ -282,6 +282,7 @@ func (m *Modulus) precomputeValues() {
 	}
 	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
 	m.m0inv = invertModW(m.nat.limbs[0])
+	m.m0inv = -m.m0inv
 }
 
 // SetUint64 sets the modulus according to an integer
@@ -470,14 +471,92 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	return z
 }
 
+// montgomeryRepresentation calculates zR mod m
+func montgomeryRepresentation(z []Word, scratch []Word, m *Modulus) {
+	size := len(m.nat.limbs)
+	// LEAK: the size of the modulus
+	// OK: this is public
+	for i := 0; i < size; i++ {
+		shiftAddIn(z, scratch, 0, m)
+	}
+}
+
+type triple struct {
+	w0 Word
+	w1 Word
+	w2 Word
+}
+
+func (a *triple) add(b triple) {
+	w0, c0 := bits.Add(uint(a.w0), uint(b.w0), 0)
+	w1, c1 := bits.Add(uint(a.w1), uint(b.w1), c0)
+	w2, _ := bits.Add(uint(a.w2), uint(b.w2), c1)
+	a.w0 = Word(w0)
+	a.w1 = Word(w1)
+	a.w2 = Word(w2)
+}
+
+func tripleFromMul(a Word, b Word) triple {
+	w1, w0 := bits.Mul(uint(a), uint(b))
+	return triple{w0: Word(w0), w1: Word(w1), w2: 0}
+}
+
+// montgomeryMul performs z <- xy / R mod m
+//
+// LEAK: the size of the modulus
+//
+// d, x, y must have the same length as the modulus, and be reduced already.
+func montgomeryMul(x []Word, y []Word, d []Word, scratch []Word, m *Modulus) {
+	size := len(m.nat.limbs)
+
+	for i := 0; i < size; i++ {
+		d[i] = 0
+	}
+	dh := Word(0)
+	for i := 0; i < size; i++ {
+		f := (d[0] + x[i]*y[0]) * m.m0inv
+		var c triple
+		for j := 0; j < size; j++ {
+			z := triple{w0: d[j], w1: 0, w2: 0}
+			z.add(tripleFromMul(x[i], y[j]))
+			z.add(tripleFromMul(f, m.nat.limbs[j]))
+			z.add(c)
+			if j > 0 {
+				d[j-1] = z.w0
+			}
+			c.w0 = z.w1
+			c.w1 = z.w2
+		}
+		z := triple{w0: dh, w1: 0, w2: 0}
+		z.add(c)
+		d[size-1] = z.w0
+		dh = z.w1
+	}
+	dhIsZero := ctEq(dh, 0)
+	dGreaterThanM := cmpGeq(d, m.nat.limbs)
+	subVV(scratch, d, m.nat.limbs)
+	sel := (1 ^ dhIsZero) | dGreaterThanM
+	ctCondCopy(sel, d, scratch)
+}
+
 // ModMul calculates z <- x * y mod m
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
-	limbCount := len(x.limbs) + len(y.limbs)
-	cap := _W * limbCount
-	z.Mul(x, y, uint(cap))
-	z.Mod(z, m)
+	var xModM, yModM Nat
+	xModM.Mod(x, m)
+	yModM.Mod(y, m)
+
+	size := len(m.nat.limbs)
+	z.limbs = make([]Word, 2*size)
+
+	zLimbs := z.limbs[:size]
+	scratch := z.limbs[size:]
+
+	montgomeryRepresentation(xModM.limbs, scratch, m)
+	montgomeryMul(xModM.limbs, yModM.limbs, zLimbs, scratch, m)
+
+	z.limbs = zLimbs
 	return z
 }
 
@@ -512,11 +591,15 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 //
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
-	limbCount := len(m.nat.limbs)
-	var mulScratch, xsquared, zScratch Nat
-	xsquared.limbs = make([]Word, limbCount)
-	zScratch.limbs = make([]Word, limbCount)
-	zScratch.limbs[0] = 1
+	size := len(m.nat.limbs)
+	scratch := make([]Word, 3*size)
+	zLimbs := scratch[:size]
+	zLimbs[0] = 1
+	scratchA := scratch[size : 2*size]
+	scratchB := scratch[2*size:]
+	var xsquared Nat
+	xsquared.Mod(x, m)
+	montgomeryRepresentation(xsquared.limbs, scratchA, m)
 	// LEAK: limbCount, x's length
 	// OK: both should be public information
 	copy(xsquared.limbs, x.limbs)
@@ -525,14 +608,15 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	for i := 0; i < len(y.limbs); i++ {
 		yi := y.limbs[i]
 		for j := 0; j < _W; j++ {
-			mulScratch.ModMul(&zScratch, &xsquared, m)
+			montgomeryMul(zLimbs, xsquared.limbs, scratchA, scratchB, m)
 			selectMultiply := yi & 1
-			ctCondCopy(selectMultiply, zScratch.limbs, mulScratch.limbs)
-			xsquared.ModMul(&xsquared, &xsquared, m)
+			ctCondCopy(selectMultiply, zLimbs, scratchA)
+			montgomeryMul(xsquared.limbs, xsquared.limbs, scratchA, scratchB, m)
+			copy(xsquared.limbs, scratchA)
 			yi >>= 1
 		}
 	}
-	z.limbs = zScratch.limbs
+	z.limbs = zLimbs
 	return z
 }
 
