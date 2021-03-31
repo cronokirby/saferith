@@ -497,6 +497,11 @@ func (a *triple) add(b triple) {
 }
 
 func tripleFromMul(a Word, b Word) triple {
+	// You might be tempted to use mulWW here, but for some reason, Go cannot
+	// figure out how to inline that assembly routine, but using bits.Mul directly
+	// gets inlined by the compiler into effectively the same assembly.
+	//
+	// Beats me.
 	w1, w0 := bits.Mul(uint(a), uint(b))
 	return triple{w0: Word(w0), w1: Word(w1), w2: 0}
 }
