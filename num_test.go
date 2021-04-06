@@ -1,10 +1,13 @@
 package safenum
 
 import (
+	"bytes"
+	"math/rand"
+	"reflect"
 	"testing"
+	"testing/quick"
 )
 
-/*
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 64)
 	r.Read(bytes)
@@ -518,7 +521,6 @@ func TestBytesExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, out)
 	}
 }
-*/
 
 func TestModInverseEvenExamples(t *testing.T) {
 	var z, x, m Nat

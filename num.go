@@ -813,11 +813,16 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	return z.modInverse(z, &m.nat)
 }
 
-// divDouble calculates x / d, assuming x has twice the length of d
+// divDouble divides x by d, outputtting the quotient in out, and a remainder
 //
-// This only leaks the public lengths of both of these.
+// This routine assumes nothing about the padding of either of its inputs, and
+// leaks nothing beyond their announced length.
 //
-// out should be a buffer the size of d, and can alias x
+// If out is not empty, it's assumed that x has at most twice the bit length of d,
+// and the quotient can thus fit in a slice the length of d, which out is assumed to be.
+//
+// If out is empty, no quotient is produced, but the remainder is still calculated.
+// This remainder will be correct regardless of the size difference between x and d.
 func divDouble(x []Word, d []Word, out []Word) []Word {
 	size := len(d)
 	r := make([]Word, size)
@@ -825,7 +830,11 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 	for i := len(x) - 1; i >= 0; i-- {
 		// out can alias x, because we recover x[i] early
 		xi := x[i]
-		out[i] = 0
+		// Hopefully the branch predictor can make these checks not too expensive,
+		// otherwise we'll have to duplicate the routine
+		if len(out) > 0 {
+			out[i] = 0
+		}
 		for j := _W - 1; j >= 0; j-- {
 			xij := (xi >> j) & 1
 			shiftCarry := shlVU(r, r, 1)
@@ -833,7 +842,9 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 			subCarry := subVV(scratch, r, d)
 			sel := ctEq(shiftCarry, subCarry)
 			ctCondCopy(sel, r, scratch)
-			out[i] = ((out[i] << 1) | sel)
+			if len(out) > 0 {
+				out[i] = ((out[i] << 1) | sel)
+			}
 		}
 	}
 	return r
@@ -850,8 +861,9 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	size := len(m.limbs)
 	scratch := make([]Word, size)
+	// We want to invert m modulo x, so we first calculate the reduced version, before inverting
 	var newZ Nat
-	newZ.limbs = divDouble(m.limbs, x.limbs, scratch)
+	newZ.limbs = divDouble(m.limbs, x.limbs, []Word{})
 	newZ.modInverse(&newZ, x)
 	newZ.Mul(&newZ, m, uint(2*size*_W))
 	newZ.limbs = newZ.resizedLimbs(2 * size)
