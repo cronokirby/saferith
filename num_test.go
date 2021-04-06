@@ -9,8 +9,10 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
+	bytes := make([]byte, 64)
+	r.Read(bytes)
 	var n Nat
-	n.SetUint64(r.Uint64())
+	n.SetBytes(bytes)
 	return reflect.ValueOf(n)
 }
 
@@ -25,11 +27,11 @@ func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 func testAddZeroIdentity(n Nat) bool {
 	var x, zero Nat
 	zero.SetUint64(0)
-	x.Add(&n, &zero, 128)
+	x.Add(&n, &zero, uint(len(n.limbs)*_W))
 	if n.CmpEq(&x) != 1 {
 		return false
 	}
-	x.Add(&zero, &n, 128)
+	x.Add(&zero, &n, uint(len(n.limbs)*_W))
 	return n.CmpEq(&x) == 1
 }
 
@@ -123,11 +125,11 @@ func TestMulAssociative(t *testing.T) {
 func testMulOneIdentity(n Nat) bool {
 	var x, one Nat
 	one.SetUint64(1)
-	x.Mul(&n, &one, 128)
+	x.Mul(&n, &one, uint(len(n.limbs)*_W))
 	if n.CmpEq(&x) != 1 {
 		return false
 	}
-	x.Mul(&one, &n, 128)
+	x.Mul(&one, &n, uint(len(n.limbs)*_W))
 	return n.CmpEq(&x) == 1
 }
 
@@ -268,7 +270,7 @@ func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	expA.Exp(&x, &a, &m)
 	expB.Exp(&x, &b, &m)
 	// Enough bits to hold the full amount
-	aPlusB.Add(&a, &b, 129)
+	aPlusB.Add(&a, &b, uint(len(a.limbs)*_W)+1)
 	way1.ModMul(&expA, &expB, &m)
 	way2.Exp(&x, &aPlusB, &m)
 	return way1.CmpEq(&way2) == 1
