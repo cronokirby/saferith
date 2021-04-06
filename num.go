@@ -737,7 +737,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	shrVU(adjust.limbs, adjust.limbs, 1)
 	adjust.limbs = adjust.limbs[:limbCount]
 
-	for i := 1; i < _W*limbCount; i++ {
+	for i := 1; i < 2*_W*limbCount-1; i++ {
 		aOdd := shrVU(aHalf.limbs, a.limbs, 1) >> (_W - 1)
 		bLarger := subVV(aMinusBHalf.limbs, a.limbs, b.limbs)
 		shrVU(aMinusBHalf.limbs, aMinusBHalf.limbs, 1)

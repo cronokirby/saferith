@@ -239,6 +239,30 @@ func TestModInverseMultiplication(t *testing.T) {
 	}
 }
 
+func testModInverseMinusOne(a Nat) bool {
+	// Clear out the lowest bit
+	a.limbs[0] &= ^Word(1)
+	var zero Nat
+	zero.SetUint64(0)
+	if a.CmpEq(&zero) == 1 {
+		return true
+	}
+	var one Nat
+	one.SetUint64(1)
+	var z Nat
+	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
+	m := ModulusFromNat(z)
+	z.ModInverse(&a, &m)
+	return z.CmpEq(&a) == 1
+}
+
+func TestModInverseMinusOne(t *testing.T) {
+	err := quick.Check(testModInverseMinusOne, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	var expA, expB, aPlusB, way1, way2 Nat
 	expA.Exp(&x, &a, &m)
@@ -385,6 +409,12 @@ func TestModInverseExamples(t *testing.T) {
 	m = ModulusFromUint64(7)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(3)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(461423694560)
+	m = ModulusFromUint64(461423694561)
+	z.ModInverse(&x, &m)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
