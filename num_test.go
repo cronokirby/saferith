@@ -9,8 +9,9 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 64)
+	bytes := make([]byte, 1)
 	r.Read(bytes)
+	bytes[0] &= 0x3
 	var n Nat
 	n.SetBytes(bytes)
 	return reflect.ValueOf(n)
@@ -260,6 +261,29 @@ func testModInverseMinusOne(a Nat) bool {
 
 func TestModInverseMinusOne(t *testing.T) {
 	err := quick.Check(testModInverseMinusOne, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testModInverseEvenMinusOne(a Nat) bool {
+	// Set the lowest bit
+	a.limbs[0] |= 1
+	var zero Nat
+	zero.SetUint64(0)
+	if a.CmpEq(&zero) == 1 {
+		return true
+	}
+	var one Nat
+	one.SetUint64(1)
+	var z Nat
+	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
+	z.ModInverseEven(&a, &z)
+	return z.CmpEq(&a) == 1
+}
+
+func TestModInverseEvenMinusOne(t *testing.T) {
+	err := quick.Check(testModInverseEvenMinusOne, &quick.Config{})
 	if err != nil {
 		t.Error(err)
 	}

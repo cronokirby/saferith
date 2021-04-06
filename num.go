@@ -818,7 +818,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 // This only leaks the public lengths of both of these.
 //
 // out should be a buffer the size of d, and can alias x
-func divDouble(x []Word, d []Word, out []Word) {
+func divDouble(x []Word, d []Word, out []Word) []Word {
 	size := len(d)
 	r := make([]Word, size)
 	scratch := make([]Word, size)
@@ -836,6 +836,7 @@ func divDouble(x []Word, d []Word, out []Word) {
 			out[i] = ((out[i] << 1) | sel)
 		}
 	}
+	return r
 }
 
 // ModInverseEven calculates the modular inverse of x, mod m
@@ -849,22 +850,15 @@ func divDouble(x []Word, d []Word, out []Word) {
 func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	size := len(m.limbs)
 	xLimbs := x.limbs
-	if z == x {
-		xLimbs = make([]Word, len(x.limbs))
-		copy(xLimbs, x.limbs)
-	}
-	if z == m {
-		mLimbs := make([]Word, len(m.limbs))
-		copy(mLimbs, m.limbs)
-		m.limbs = mLimbs
-	}
-	z.modInverse(m, x)
-	z.Mul(z, m, uint(2*size*_W))
-	z.limbs = z.resizedLimbs(2 * size)
-	subVW(z.limbs, z.limbs, 1)
-	divDouble(z.limbs, xLimbs, z.limbs)
+	var newZ Nat
+	newZ.limbs = make([]Word, len(x.limbs))
+	newZ.modInverse(m, x)
+	newZ.Mul(&newZ, m, uint(2*size*_W))
+	newZ.limbs = newZ.resizedLimbs(2 * size)
+	subVW(newZ.limbs, newZ.limbs, 1)
+	divDouble(newZ.limbs, xLimbs, newZ.limbs)
 	out := make([]Word, size)
-	subVV(out, m.limbs, z.limbs[:size])
+	subVV(out, m.limbs, newZ.limbs[:size])
 	z.limbs = out
 	return z
 }
