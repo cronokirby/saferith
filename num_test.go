@@ -1,13 +1,10 @@
 package safenum
 
 import (
-	"bytes"
-	"math/rand"
-	"reflect"
 	"testing"
-	"testing/quick"
 )
 
+/*
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 64)
 	r.Read(bytes)
@@ -288,6 +285,28 @@ func TestModInverseEvenMinusOne(t *testing.T) {
 	}
 }
 
+func testModInverseEvenOne(a Nat) bool {
+	// Clear the lowest bit
+	a.limbs[0] &= ^Word(1)
+	var zero Nat
+	zero.SetUint64(0)
+	if a.CmpEq(&zero) == 1 {
+		return true
+	}
+	var one Nat
+	one.SetUint64(1)
+	var z Nat
+	z.ModInverseEven(&one, &a)
+	return z.CmpEq(&one) == 1
+}
+
+func TestModInverseEvenOne(t *testing.T) {
+	err := quick.Check(testModInverseEvenOne, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	var expA, expB, aPlusB, way1, way2 Nat
 	expA.Exp(&x, &a, &m)
@@ -499,6 +518,7 @@ func TestBytesExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, out)
 	}
 }
+*/
 
 func TestModInverseEvenExamples(t *testing.T) {
 	var z, x, m Nat
@@ -525,6 +545,16 @@ func TestModInverseEvenExamples(t *testing.T) {
 	m.SetUint64(1000)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(999)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	// There's an edge case when the modulus is much larger than the input,
+	// in which case when we do m^-1 mod x, we need to first calculate the remainder
+	// of m.
+	x.SetUint64(3)
+	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0})
+	x.ModInverseEven(&x, &m)
+	z.SetBytes([]byte{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAB})
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}

@@ -849,16 +849,15 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 // This function assumes that x has an inverse modulo m, naturally
 func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	size := len(m.limbs)
-	xLimbs := x.limbs
+	scratch := make([]Word, size)
 	var newZ Nat
-	newZ.limbs = make([]Word, len(x.limbs))
-	newZ.modInverse(m, x)
+	newZ.limbs = divDouble(m.limbs, x.limbs, scratch)
+	newZ.modInverse(&newZ, x)
 	newZ.Mul(&newZ, m, uint(2*size*_W))
 	newZ.limbs = newZ.resizedLimbs(2 * size)
 	subVW(newZ.limbs, newZ.limbs, 1)
-	divDouble(newZ.limbs, xLimbs, newZ.limbs)
-	out := make([]Word, size)
-	subVV(out, m.limbs, newZ.limbs[:size])
-	z.limbs = out
+	divDouble(newZ.limbs, x.limbs, newZ.limbs)
+	subVV(scratch, m.limbs, newZ.limbs[:size])
+	z.limbs = scratch
 	return z
 }
