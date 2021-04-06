@@ -9,9 +9,8 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 1)
+	bytes := make([]byte, 64)
 	r.Read(bytes)
-	bytes[0] &= 0x3
 	var n Nat
 	n.SetBytes(bytes)
 	return reflect.ValueOf(n)
