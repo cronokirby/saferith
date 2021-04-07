@@ -33,7 +33,8 @@ func ctGt(x, y Word) Word {
 //
 // This doesn't leak the value of any of its inputs
 func ctIfElse(v, x, y Word) Word {
-	mask := Word(-int64(v))
+	// mask should be all 1s if v is 1, otherwise all 0s
+	mask := -v
 	return y ^ (mask & (y ^ x))
 }
 
@@ -46,7 +47,7 @@ func ctIfElse(v, x, y Word) Word {
 // Otherwise, which branch was taken isn't leaked
 func ctCondCopy(v Word, x, y []Word) {
 	// see ctMux
-	mask := Word(-int64(v))
+	mask := -v
 	for i := 0; i < len(x); i++ {
 		x[i] = x[i] ^ (mask & (x[i] ^ y[i]))
 	}
@@ -236,6 +237,8 @@ func (z *Nat) SetUint64(x uint64) *Nat {
 		// This works since _W is a power of 2
 		limbCount := 64 / _W
 		z.limbs = z.resizedLimbs(limbCount)
+		// LEAK: limbCount
+		// OK: This is public
 		for i := 0; i < limbCount; i++ {
 			z.limbs[i] = Word(x)
 			x >>= _W
@@ -299,7 +302,7 @@ func ModulusFromUint64(x uint64) Modulus {
 
 // trueSize calculates the actual size necessary for representing these limbs
 //
-// This is the size with leading zeros removed. This naturally leaks the number
+// This is the size with leading zeros removed. This leaks the number
 // of such zeros
 func trueSize(limbs []Word) int {
 	var size int
@@ -353,14 +356,23 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 		return
 	}
 	if size == 1 {
+		// In this case, z:x % m is exactly what we need to calculate
 		_, r := div(z[0], x, m.nat.limbs[0])
 		z[0] = r
 		return
 	}
 
+	// The idea is as follows:
+	//
+	// We want to shift x into z, and then divide by m. Instead of dividing by
+	// m, we can get a good estimate, using the top two 2 * _W bits of z, and the
+	// top _W bits of m. These are stored in a1:a0, and b0 respectively.
+
+	// We need to keep around the top word of z, pre-shifting
 	hi := z[size-1]
 
 	a1 := (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
+	// The actual shift can be performed by moving the limbs of z up, then inserting x
 	for i := size - 1; i > 0; i-- {
 		z[i] = z[i-1]
 	}
@@ -368,10 +380,22 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 	a0 := (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
 	b0 := (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
 
+	// We want to use a1:a0 / b0 - 1 as our estimate. If rawQ is 0, we should
+	// use 0 as our estimate. Another edge case when an overflow happens in the quotient.
+	// It casn be shown that this happens when a1 == b0. In this case, we want
+	// to use the maximum value for q
 	rawQ, _ := div(a1, a0, b0)
 	q := ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
+
+	// This estimate is off by +- 1, so we subtract q * m, and then either add
+	// or subtract m, based on the result.
 	c := mulSubVVW(z, m.nat.limbs, q)
+	// If the carry from subtraction is greater than the limb of z we've shifted out,
+	// then we've underflowed, and need to add in m
 	under := ctGt(c, hi)
+	// For us to be too large, we first need to not be too low, as per the previous flag.
+	// Then, if the lower limbs of z are still larger, or the top limb of z is equal to the carry,
+	// we can conclude that we're too large, and need to subtract m
 	stillBigger := cmpGeq(z, m.nat.limbs)
 	over := (1 ^ under) & (stillBigger | (1 ^ ctEq(c, hi)))
 	addVV(scratch, z, m.nat.limbs)
