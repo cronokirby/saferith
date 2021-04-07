@@ -510,13 +510,13 @@ func montgomeryRepresentation(z []Word, scratch []Word, m *Modulus) {
 	}
 }
 
-type triWord struct {
+type triple struct {
 	w0 Word
 	w1 Word
 	w2 Word
 }
 
-func (a *triWord) add(b triWord) {
+func (a *triple) add(b triple) {
 	w0, c0 := bits.Add(uint(a.w0), uint(b.w0), 0)
 	w1, c1 := bits.Add(uint(a.w1), uint(b.w1), c0)
 	w2, _ := bits.Add(uint(a.w2), uint(b.w2), c1)
@@ -525,14 +525,14 @@ func (a *triWord) add(b triWord) {
 	a.w2 = Word(w2)
 }
 
-func triWordFromMul(a Word, b Word) triWord {
+func tripleFromMul(a Word, b Word) triple {
 	// You might be tempted to use mulWW here, but for some reason, Go cannot
 	// figure out how to inline that assembly routine, but using bits.Mul directly
 	// gets inlined by the compiler into effectively the same assembly.
 	//
 	// Beats me.
 	w1, w0 := bits.Mul(uint(a), uint(b))
-	return triWord{w0: Word(w0), w1: Word(w1), w2: 0}
+	return triple{w0: Word(w0), w1: Word(w1), w2: 0}
 }
 
 // montgomeryMul performs z <- xy / R mod m
@@ -551,11 +551,11 @@ func montgomeryMul(x []Word, y []Word, out []Word, scratch []Word, m *Modulus) {
 	dh := Word(0)
 	for i := 0; i < size; i++ {
 		f := (scratch[0] + x[i]*y[0]) * m.m0inv
-		var c triWord
+		var c triple
 		for j := 0; j < size; j++ {
-			z := triWord{w0: scratch[j], w1: 0, w2: 0}
-			z.add(triWordFromMul(x[i], y[j]))
-			z.add(triWordFromMul(f, m.nat.limbs[j]))
+			z := triple{w0: scratch[j], w1: 0, w2: 0}
+			z.add(tripleFromMul(x[i], y[j]))
+			z.add(tripleFromMul(f, m.nat.limbs[j]))
 			z.add(c)
 			if j > 0 {
 				scratch[j-1] = z.w0
@@ -563,7 +563,7 @@ func montgomeryMul(x []Word, y []Word, out []Word, scratch []Word, m *Modulus) {
 			c.w0 = z.w1
 			c.w1 = z.w2
 		}
-		z := triWord{w0: dh, w1: 0, w2: 0}
+		z := triple{w0: dh, w1: 0, w2: 0}
 		z.add(c)
 		scratch[size-1] = z.w0
 		dh = z.w1
@@ -674,6 +674,16 @@ func cmpGeq(x []Word, y []Word) Word {
 	return res
 }
 
+func cmpEq(a, b []Word) Word {
+	var v Word
+	// LEAK: size
+	// OK: this was calculated using the length of x and z, both public
+	for i := 0; i < len(a) && i < len(b); i++ {
+		v |= a[i] ^ b[i]
+	}
+	return ctEq(v, 0)
+}
+
 // CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
 func (z *Nat) CmpEq(x *Nat) int {
 	// Rough Idea: Resize both slices to the maximum length, then compare
@@ -688,14 +698,15 @@ func (z *Nat) CmpEq(x *Nat) int {
 	}
 	zLimbs := z.resizedLimbs(size)
 	xLimbs := x.resizedLimbs(size)
+	return int(cmpEq(xLimbs, zLimbs))
+}
 
-	var v Word
-	// LEAK: size
-	// OK: this was calculated using the length of x and z, both public
-	for i := 0; i < size; i++ {
-		v |= zLimbs[i] ^ xLimbs[i]
+func condSwap(v Word, a, b []Word) {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		ai := a[i]
+		a[i] = ctIfElse(v, b[i], ai)
+		b[i] = ctIfElse(v, ai, b[i])
 	}
-	return int(ctEq(v, 0))
 }
 
 // modInverse calculates the inverse of a reduced x modulo m
@@ -706,125 +717,74 @@ func (z *Nat) CmpEq(x *Nat) int {
 //
 // We also assume that x is already reduced modulo m
 func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
-	limbCount := len(m.limbs)
+	size := len(m.limbs)
+	// TODO: Reuse z
+	scratch := make([]Word, 8*size)
+	v := scratch[:size]
+	u := scratch[size : 2*size]
+	b := scratch[2*size : 3*size]
+	a := scratch[3*size : 4*size]
+	halfm := scratch[4*size : 5*size+1]
+	a1 := scratch[5*size : 6*size]
+	u1 := scratch[6*size : 7*size]
+	u2 := scratch[7*size:]
 
-	// aHalf <- a / 2
-	// aMinusBHalf <- (a - b) / 2
-	var a, aHalf, aMinusBHalf Nat
-	a.limbs = make([]Word, limbCount)
-	copy(a.limbs, x.limbs)
-	aHalf.limbs = make([]Word, limbCount)
-	aMinusBHalf.limbs = make([]Word, limbCount)
-
-	// bHalf <- b / 2
-	// bMinusAHalf <- (b - a) / 2
-	var b, bHalf, bMinusAHalf Nat
-	b.limbs = make([]Word, limbCount)
-	copy(b.limbs, m.limbs)
-	bHalf.limbs = make([]Word, limbCount)
-	bMinusAHalf.limbs = make([]Word, limbCount)
-
-	// uHalf <- u / 2
-	// uHalfAdjust <- u / 2 + adjust (if u wasn't even)
-	// uMinusVHalf <- (u - v) / 2
-	// uMinusVHalfUnder <- (u - v) + m (when the subtraction overflows)
-	// uMinusVHalfUnder <- (u - v) / 2 + adjust (if this wasn't even)
-	var u, uHalf, uHalfAdjust, uMinusVHalf, uMinusVHalfUnder, uMinusVHalfAdjust Nat
-	u.limbs = make([]Word, limbCount)
-	u.limbs[0] = 1
-	uHalf.limbs = make([]Word, limbCount)
-	uHalfAdjust.limbs = make([]Word, limbCount)
-	uMinusVHalf.limbs = make([]Word, limbCount)
-	uMinusVHalfUnder.limbs = make([]Word, limbCount)
-	uMinusVHalfAdjust.limbs = make([]Word, limbCount)
-
-	// vHalf <- v / 2
-	// vHalfAdjust <- v / 2 + adjust (if v wasn't even)
-	// vMinusUHalf <- (v - u) / 2
-	// vMinusUHalfUnder <- (v - u) + m (when the subtraction overflows)
-	// vMinusUHalfUnder <- (v - u) / 2 + adjust (if this wasn't even)
-	var v, vHalf, vHalfAdjust, vMinusUHalf, vMinusUHalfUnder, vMinusUHalfAdjust Nat
-	v.limbs = make([]Word, limbCount)
-	vHalf.limbs = make([]Word, limbCount)
-	vHalfAdjust.limbs = make([]Word, limbCount)
-	vMinusUHalf.limbs = make([]Word, limbCount)
-	vMinusUHalfUnder.limbs = make([]Word, limbCount)
-	vMinusUHalfAdjust.limbs = make([]Word, limbCount)
-
-	// In order to implement a / 2 mod m, if a might not be even,
-	// we shift right by 2, and the conditionally add in (m + 1) / 2.
-	// Adjust contains (m + 1) / 2
-	var adjust Nat
-	// We just want to add 1 to m, and then shift down, so we need to have an extra
-	// bit of capacity in case adding 1 to m needs an extra limb. I guess this is necessary
-	// e.g. you're using a mersenne prime as a modulus?
-	adjust.Add(&u, m, _W*uint(limbCount)+1)
-	shrVU(adjust.limbs, adjust.limbs, 1)
-	adjust.limbs = adjust.limbs[:limbCount]
-
-	for i := 1; i < 2*_W*limbCount-1; i++ {
-		aOdd := shrVU(aHalf.limbs, a.limbs, 1) >> (_W - 1)
-		bLarger := subVV(aMinusBHalf.limbs, a.limbs, b.limbs)
-		shrVU(aMinusBHalf.limbs, aMinusBHalf.limbs, 1)
-
-		bOdd := shrVU(bHalf.limbs, b.limbs, 1) >> (_W - 1)
-		aLarger := subVV(bMinusAHalf.limbs, b.limbs, a.limbs)
-		shrVU(bMinusAHalf.limbs, bMinusAHalf.limbs, 1)
-
-		uOdd := shrVU(uHalf.limbs, u.limbs, 1) >> (_W - 1)
-		addVV(uHalfAdjust.limbs, uHalf.limbs, adjust.limbs)
-		ctCondCopy(uOdd, uHalf.limbs, uHalfAdjust.limbs)
-		uUnder := subVV(uMinusVHalf.limbs, u.limbs, v.limbs)
-		addVV(uMinusVHalfUnder.limbs, uMinusVHalf.limbs, m.limbs)
-		ctCondCopy(uUnder, uMinusVHalf.limbs, uMinusVHalfUnder.limbs)
-		uAdjust := shrVU(uMinusVHalf.limbs, uMinusVHalf.limbs, 1) >> (_W - 1)
-		addVV(uMinusVHalfAdjust.limbs, uMinusVHalf.limbs, adjust.limbs)
-		ctCondCopy(uAdjust, uMinusVHalf.limbs, uMinusVHalfAdjust.limbs)
-
-		vOdd := shrVU(vHalf.limbs, v.limbs, 1) >> (_W - 1)
-		addVV(vHalfAdjust.limbs, vHalf.limbs, adjust.limbs)
-		ctCondCopy(vOdd, vHalf.limbs, vHalfAdjust.limbs)
-		vUnder := subVV(vMinusUHalf.limbs, v.limbs, u.limbs)
-		addVV(vMinusUHalfUnder.limbs, vMinusUHalf.limbs, m.limbs)
-		ctCondCopy(vUnder, vMinusUHalf.limbs, vMinusUHalfUnder.limbs)
-		vAdjust := shrVU(vMinusUHalf.limbs, vMinusUHalf.limbs, 1) >> (_W - 1)
-		addVV(vMinusUHalfAdjust.limbs, vMinusUHalf.limbs, adjust.limbs)
-		ctCondCopy(vAdjust, vMinusUHalf.limbs, vMinusUHalfAdjust.limbs)
-
-		// Here's the big idea:
-		//
-		// if a == b:
-		//	 pass
-		// else if even(a):
-		//	 a <- a / 2
-		//   u <- u / 2 mod m
-		// else if even(b):
-		//   b <- b / 2
-		//   v <- v / 2 mod m
-		// else if a > b:
-		//   a <- (a - b) / 2
-		//   u <- (u - v) / 2 mod m
-		// else if b > a:
-		//   b <- (b - a) / 2
-		//   v <- (v - u) / 2 mod m
-
-		// TODO: Is this the best way of making the selection matrix?
-		// Exactly one of these is going to be true, in theory
-		select1 := 1 - aOdd
-		select2 := (1 - select1) & (1 - bOdd)
-		select3 := (1 - select1) & (1 - select2) & aLarger
-		select4 := (1 - select1) & (1 - select2) & (1 - select3) & bLarger
-
-		ctCondCopy(select1, a.limbs, aHalf.limbs)
-		ctCondCopy(select1, u.limbs, uHalf.limbs)
-		ctCondCopy(select2, b.limbs, bHalf.limbs)
-		ctCondCopy(select2, v.limbs, vHalf.limbs)
-		ctCondCopy(select3, a.limbs, aMinusBHalf.limbs)
-		ctCondCopy(select3, u.limbs, uMinusVHalf.limbs)
-		ctCondCopy(select4, b.limbs, bMinusAHalf.limbs)
-		ctCondCopy(select4, v.limbs, vMinusUHalf.limbs)
+	// a = x
+	copy(a, x.limbs)
+	// v = 0
+	// u = 1
+	for i := 0; i < size; i++ {
+		u[i] = 0
+		v[i] = 0
 	}
-	z.limbs = u.limbs
+	u[0] = 1
+
+	// halfm = (m + 1) / 2
+	halfm[size] = addVW(halfm, m.limbs, 1)
+	shrVU(halfm, halfm, 1)
+	halfm = halfm[:size]
+
+	copy(b, m.limbs)
+
+	// Idea:
+	//
+	// while a != 0:
+	//   if a is even:
+	//	   a = a / 2
+	//     u = (u / 2) mod m
+	//   else:
+	//     if a < b:
+	//       swap(a, b)
+	//       swap(u, v)
+	//     a = (a - b) / 2
+	//     u = (u - v) / 2 mod m
+	//
+	// We run for 2 * k - 1 iterations, with k the number of bits of the modulus
+	for i := 0; i < 2*_W*size-1; i++ {
+		aEven := 1 ^ (a[0] & 1)
+		shrVU(a1, a, 1)
+		uOdd := u[0] & 1
+		shrVU(u2, u, 1)
+		addVV(u1, u2, halfm)
+		ctCondCopy(uOdd, u2, u1)
+		aSmaller := 1 ^ cmpGeq(a, b)
+		swap := (1 ^ aEven) & aSmaller
+		condSwap(swap, a, b)
+		condSwap(swap, u, v)
+		subVV(a, a, b)
+		shrVU(a, a, 1)
+		subCarry := subVV(u, u, v)
+		addVV(u1, u, m.limbs)
+		ctCondCopy(subCarry, u, u1)
+		uOdd = u[0] & 1
+		shrVU(u, u, 1)
+		addVV(u1, u, halfm)
+		ctCondCopy(uOdd, u, u1)
+		ctCondCopy(aEven, a, a1)
+		ctCondCopy(aEven, u, u2)
+	}
+
+	z.limbs = scratch[:size]
 	return z
 }
 
@@ -886,15 +846,20 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	size := len(m.limbs)
 	scratch := make([]Word, size)
+	scratch2 := make([]Word, size)
 	// We want to invert m modulo x, so we first calculate the reduced version, before inverting
 	var newZ Nat
 	newZ.limbs = divDouble(m.limbs, x.limbs, []Word{})
 	newZ.modInverse(&newZ, x)
+	inverseZero := cmpEq(newZ.limbs, scratch2)
 	newZ.Mul(&newZ, m, uint(2*size*_W))
 	newZ.limbs = newZ.resizedLimbs(2 * size)
 	subVW(newZ.limbs, newZ.limbs, 1)
 	divDouble(newZ.limbs, x.limbs, newZ.limbs)
 	subVV(scratch, m.limbs, newZ.limbs[:size])
+	// If the inverse was zero, this means that x was 1
+	scratch2[0] = 1
+	ctCondCopy(inverseZero, scratch, scratch2)
 	z.limbs = scratch
 	return z
 }

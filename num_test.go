@@ -9,7 +9,7 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 64)
+	bytes := make([]byte, 1)
 	r.Read(bytes)
 	var n Nat
 	n.SetBytes(bytes)
@@ -528,6 +528,13 @@ func TestModInverseEvenExamples(t *testing.T) {
 	m.SetUint64(10)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(9)
+	if x.CmpEq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(1)
+	m.SetUint64(10)
+	x.ModInverseEven(&x, &m)
+	z.SetUint64(1)
 	if x.CmpEq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
