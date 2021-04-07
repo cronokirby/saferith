@@ -501,6 +501,7 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 
 // montgomeryRepresentation calculates zR mod m
 func montgomeryRepresentation(z []Word, scratch []Word, m *Modulus) {
+	// Our strategy is to shift by W, n times, each time reducing modulo m
 	size := len(m.nat.limbs)
 	// LEAK: the size of the modulus
 	// OK: this is public
@@ -509,13 +510,13 @@ func montgomeryRepresentation(z []Word, scratch []Word, m *Modulus) {
 	}
 }
 
-type triple struct {
+type triWord struct {
 	w0 Word
 	w1 Word
 	w2 Word
 }
 
-func (a *triple) add(b triple) {
+func (a *triWord) add(b triWord) {
 	w0, c0 := bits.Add(uint(a.w0), uint(b.w0), 0)
 	w1, c1 := bits.Add(uint(a.w1), uint(b.w1), c0)
 	w2, _ := bits.Add(uint(a.w2), uint(b.w2), c1)
@@ -524,14 +525,14 @@ func (a *triple) add(b triple) {
 	a.w2 = Word(w2)
 }
 
-func tripleFromMul(a Word, b Word) triple {
+func triWordFromMul(a Word, b Word) triWord {
 	// You might be tempted to use mulWW here, but for some reason, Go cannot
 	// figure out how to inline that assembly routine, but using bits.Mul directly
 	// gets inlined by the compiler into effectively the same assembly.
 	//
 	// Beats me.
 	w1, w0 := bits.Mul(uint(a), uint(b))
-	return triple{w0: Word(w0), w1: Word(w1), w2: 0}
+	return triWord{w0: Word(w0), w1: Word(w1), w2: 0}
 }
 
 // montgomeryMul performs z <- xy / R mod m
@@ -550,11 +551,11 @@ func montgomeryMul(x []Word, y []Word, out []Word, scratch []Word, m *Modulus) {
 	dh := Word(0)
 	for i := 0; i < size; i++ {
 		f := (scratch[0] + x[i]*y[0]) * m.m0inv
-		var c triple
+		var c triWord
 		for j := 0; j < size; j++ {
-			z := triple{w0: scratch[j], w1: 0, w2: 0}
-			z.add(tripleFromMul(x[i], y[j]))
-			z.add(tripleFromMul(f, m.nat.limbs[j]))
+			z := triWord{w0: scratch[j], w1: 0, w2: 0}
+			z.add(triWordFromMul(x[i], y[j]))
+			z.add(triWordFromMul(f, m.nat.limbs[j]))
 			z.add(c)
 			if j > 0 {
 				scratch[j-1] = z.w0
@@ -562,7 +563,7 @@ func montgomeryMul(x []Word, y []Word, out []Word, scratch []Word, m *Modulus) {
 			c.w0 = z.w1
 			c.w1 = z.w2
 		}
-		z := triple{w0: dh, w1: 0, w2: 0}
+		z := triWord{w0: dh, w1: 0, w2: 0}
 		z.add(c)
 		scratch[size-1] = z.w0
 		dh = z.w1
