@@ -718,8 +718,19 @@ func condSwap(v Word, a, b []Word) {
 // We also assume that x is already reduced modulo m
 func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	size := len(m.limbs)
-	// TODO: Reuse z
-	scratch := make([]Word, 8*size)
+	// Make sure that z doesn't alias either of m or x
+	xLimbs := x.limbs
+	if z == x {
+		xLimbs = make([]Word, len(xLimbs))
+		copy(xLimbs, x.limbs)
+	}
+	mLimbs := m.limbs
+	if z == m {
+		mLimbs = make([]Word, size)
+		copy(mLimbs, m.limbs)
+	}
+
+	scratch := z.resizedLimbs(8 * size)
 	v := scratch[:size]
 	u := scratch[size : 2*size]
 	b := scratch[2*size : 3*size]
@@ -730,7 +741,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	u2 := scratch[7*size:]
 
 	// a = x
-	copy(a, x.limbs)
+	copy(a, xLimbs)
 	// v = 0
 	// u = 1
 	for i := 0; i < size; i++ {
@@ -740,7 +751,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	u[0] = 1
 
 	// halfm = (m + 1) / 2
-	halfm[size] = addVW(halfm, m.limbs, 1)
+	halfm[size] = addVW(halfm, mLimbs, 1)
 	shrVU(halfm, halfm, 1)
 	halfm = halfm[:size]
 
