@@ -525,6 +525,11 @@ func montgomeryRepresentation(z []Word, scratch []Word, m *Modulus) {
 	}
 }
 
+// You might have the urge to replace this with []Word, and use the routines
+// that already exist for doing operations. This would be a mistake.
+// Go doesn't seem to be able to optimize and inline slice operations nearly as
+// well as it can for this little type. Attempts to replace this struct with a
+// slice were an order of magnitude slower (as per the exponentiation operation)
 type triple struct {
 	w0 Word
 	w1 Word
