@@ -772,25 +772,30 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	//
 	// We run for 2 * k - 1 iterations, with k the number of bits of the modulus
 	for i := 0; i < 2*_W*size-1; i++ {
-		aEven := 1 ^ (a[0] & 1)
-		shrVU(a1, a, 1)
-		uOdd := u[0] & 1
-		shrVU(u2, u, 1)
+		// a1 and u2 will hold the results to use if a is even
+		aOdd := shrVU(a1, a, 1) >> (_W - 1)
+		aEven := 1 ^ aOdd
+		uOdd := shrVU(u2, u, 1) >> (_W - 1)
 		addVV(u1, u2, halfm)
 		ctCondCopy(uOdd, u2, u1)
+
+		// Now we calculate the results if a is not even, which may get overwritten later
 		aSmaller := 1 ^ cmpGeq(a, b)
-		swap := (1 ^ aEven) & aSmaller
+		swap := aOdd & aSmaller
 		condSwap(swap, a, b)
 		condSwap(swap, u, v)
+
 		subVV(a, a, b)
 		shrVU(a, a, 1)
+		// u = (u - v) / 2 mod m
 		subCarry := subVV(u, u, v)
 		addVV(u1, u, m.limbs)
 		ctCondCopy(subCarry, u, u1)
-		uOdd = u[0] & 1
-		shrVU(u, u, 1)
+		uOdd = shrVU(u, u, 1) >> (_W - 1)
 		addVV(u1, u, halfm)
 		ctCondCopy(uOdd, u, u1)
+
+		// If a was indeed even, we use the results we produced earlier
 		ctCondCopy(aEven, a, a1)
 		ctCondCopy(aEven, u, u2)
 	}
