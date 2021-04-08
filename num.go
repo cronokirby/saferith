@@ -599,10 +599,15 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	var yModM Nat
 	yModM.Mod(y, m)
+	xLimbs := x.limbs
+	if x == z {
+		xLimbs = make([]Word, len(x.limbs))
+		copy(xLimbs, x.limbs)
+	}
 	// The idea is to position x after size zeros, making modular reduction
 	// also calculate the montgomery representation
-	z.limbs = z.resizedLimbs(2 * size)
-	copy(z.limbs[size:], x.limbs)
+	z.limbs = z.resizedLimbs(size + len(xLimbs))
+	copy(z.limbs[size:], xLimbs)
 	for i := 0; i < size; i++ {
 		z.limbs[i] = 0
 	}

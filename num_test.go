@@ -17,7 +17,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 64)
+	bytes := make([]byte, 32)
 	r.Read(bytes)
 	bytes[len(bytes)-1] |= 1
 	n := ModulusFromBytes(bytes)

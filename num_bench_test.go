@@ -28,6 +28,7 @@ func largePrime() []byte {
 	return bytes
 }
 
+/*
 func BenchmarkAddBig(b *testing.B) {
 	var x big.Int
 	x.SetBytes(ones())
@@ -293,6 +294,7 @@ func BenchmarkLargeModInverseEvenNat(b *testing.B) {
 	m.Add(&m, &one, 3224)
 	_benchmarkModInverseEvenNat(&m, b)
 }
+*/
 
 func _benchmarkExpNat(m *Modulus, b *testing.B) {
 	var x Nat
@@ -314,6 +316,8 @@ func BenchmarkLargeExpNat(b *testing.B) {
 	_benchmarkExpNat(&m, b)
 }
 
+/*
+
 func BenchmarkSetBytesNat(b *testing.B) {
 	bytes := ones()
 	for n := 0; n < b.N; n++ {
@@ -322,3 +326,4 @@ func BenchmarkSetBytesNat(b *testing.B) {
 		resultNat = z
 	}
 }
+*/
