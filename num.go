@@ -53,6 +53,21 @@ func ctCondCopy(v Word, x, y []Word) {
 	}
 }
 
+// ctCondSwap swaps the contents of a and b, when v == 1, otherwise does nothing
+//
+// Both slices must have the same length.
+//
+// LEAK: the length of the slices
+//
+// Whether or not a swap happened isn't leaked
+func ctCondSwap(v Word, a, b []Word) {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		ai := a[i]
+		a[i] = ctIfElse(v, b[i], ai)
+		b[i] = ctIfElse(v, ai, b[i])
+	}
+}
+
 // "Missing" Functions
 // These are routines that could in theory be implemented in assembly,
 // but aren't already present in Go's big number routines
@@ -674,10 +689,11 @@ func cmpGeq(x []Word, y []Word) Word {
 	return res
 }
 
+// cmpEq compares two slices of the same length for equality, in constant time
+//
+// LEAK: the length of a, and b
 func cmpEq(a, b []Word) Word {
 	var v Word
-	// LEAK: size
-	// OK: this was calculated using the length of x and z, both public
 	for i := 0; i < len(a) && i < len(b); i++ {
 		v |= a[i] ^ b[i]
 	}
@@ -699,14 +715,6 @@ func (z *Nat) CmpEq(x *Nat) int {
 	zLimbs := z.resizedLimbs(size)
 	xLimbs := x.resizedLimbs(size)
 	return int(cmpEq(xLimbs, zLimbs))
-}
-
-func condSwap(v Word, a, b []Word) {
-	for i := 0; i < len(a) && i < len(b); i++ {
-		ai := a[i]
-		a[i] = ctIfElse(v, b[i], ai)
-		b[i] = ctIfElse(v, ai, b[i])
-	}
 }
 
 // modInverse calculates the inverse of a reduced x modulo m
@@ -782,8 +790,8 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 		// Now we calculate the results if a is not even, which may get overwritten later
 		aSmaller := 1 ^ cmpGeq(a, b)
 		swap := aOdd & aSmaller
-		condSwap(swap, a, b)
-		condSwap(swap, u, v)
+		ctCondSwap(swap, a, b)
+		ctCondSwap(swap, u, v)
 
 		subVV(a, a, b)
 		shrVU(a, a, 1)
