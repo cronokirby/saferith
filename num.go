@@ -117,6 +117,8 @@ func mulSubVVW(z, x []Word, y Word) (c Word) {
 // The capacity of a number is usually inherited through whatever method was used to
 // create the number in the first place.
 type Nat struct {
+	// Two natural numbers are not allowed to share the same slice. This allows
+	// us to use pointer comparison to check that Nats don't alias eachother
 	limbs []Word
 }
 
@@ -145,6 +147,20 @@ func (z *Nat) resizedLimbs(size int) []Word {
 	// Make sure that the expansion (if any) is cleared
 	for i := len(z.limbs); i < size; i++ {
 		res[i] = 0
+	}
+	return res
+}
+
+// unaliasedLimbs returns a set of limbs for z, such that they do not alias those of x
+//
+// This will create a copy of the limbs, if necessary.
+//
+// LEAK: the size of z, whether or not z and x are the same Nat
+func (z *Nat) unaliasedLimbs(x *Nat) []Word {
+	res := z.limbs
+	if z == x {
+		res = make([]Word, len(z.limbs))
+		copy(res, z.limbs)
 	}
 	return res
 }
@@ -424,8 +440,11 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
-	xLimbs := x.limbs
-	z.limbs = make([]Word, 2*size)
+	xLimbs := x.unaliasedLimbs(z)
+	z.limbs = z.resizedLimbs(2 * size)
+	for i := 0; i < len(z.limbs); i++ {
+		z.limbs[i] = 0
+	}
 	// Multiple times in this section:
 	// LEAK: the length of x
 	// OK: this is public information
@@ -599,11 +618,7 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	var yModM Nat
 	yModM.Mod(y, m)
-	xLimbs := x.limbs
-	if x == z {
-		xLimbs = make([]Word, len(x.limbs))
-		copy(xLimbs, x.limbs)
-	}
+	xLimbs := x.unaliasedLimbs(z)
 	// The idea is to position x after size zeros, making modular reduction
 	// also calculate the montgomery representation
 	z.limbs = z.resizedLimbs(size + len(xLimbs))
@@ -659,12 +674,7 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	var xsquared Nat
 	xsquared.Mod(x, m)
 
-	yLimbs := y.limbs
-	if z == y {
-		yLimbs = make([]Word, size)
-		copy(yLimbs, y.limbs)
-	}
-
+	yLimbs := y.unaliasedLimbs(z)
 	scratch := z.resizedLimbs(3 * size)
 	z.limbs = scratch[:size]
 	z.limbs[0] = 1
@@ -737,16 +747,8 @@ func (z *Nat) CmpEq(x *Nat) int {
 func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	size := len(m.limbs)
 	// Make sure that z doesn't alias either of m or x
-	xLimbs := x.limbs
-	if z == x {
-		xLimbs = make([]Word, len(xLimbs))
-		copy(xLimbs, x.limbs)
-	}
-	mLimbs := m.limbs
-	if z == m {
-		mLimbs = make([]Word, size)
-		copy(mLimbs, m.limbs)
-	}
+	xLimbs := x.unaliasedLimbs(z)
+	mLimbs := m.unaliasedLimbs(z)
 
 	scratch := z.resizedLimbs(8 * size)
 	v := scratch[:size]
