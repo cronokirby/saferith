@@ -481,16 +481,12 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	yModM.Mod(y, m)
 
 	// The only thing we have to resize is z, everything else has m's length
-	limbCount := len(m.nat.limbs)
-	z.limbs = z.resizedLimbs(limbCount)
+	size := len(m.nat.limbs)
+	scratch := z.resizedLimbs(2 * size)
+	z.limbs = scratch[:size]
+	subResult := scratch[size:]
 
-	// LEAK: limbCount
-	// OK: the size of the modulus should be public information
 	addCarry := addVV(z.limbs, xModM.limbs, yModM.limbs)
-	// I don't think we can avoid using an extra scratch buffer
-	subResult := make([]Word, limbCount)
-	// LEAK: limbCount
-	// OK: see above
 	subCarry := subVV(subResult, z.limbs, m.nat.limbs)
 	// Three cases are possible:
 	//
@@ -507,7 +503,7 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	// enough to both overflow the addition by at least m. But, we made sure that
 	// x and y are at most m - 1, so this isn't possible.
 	selectSub := ctEq(addCarry, subCarry)
-	ctCondCopy(selectSub, z.limbs, subResult)
+	ctCondCopy(selectSub, z.limbs[:size], subResult)
 	return z
 }
 
