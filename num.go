@@ -855,7 +855,22 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 	size := len(d)
 	r := make([]Word, size)
 	scratch := make([]Word, size)
-	for i := len(x) - 1; i >= 0; i-- {
+
+	// We use free injection, like in Mod
+	i := len(x) - 1
+	// We can inject at least size - 1 limbs while staying under m
+	// Thus, we start injecting from index size - 2
+	start := size - 2
+	// That is, if there are at least that many limbs to choose from
+	if i < start {
+		start = i
+	}
+	for j := start; j >= 0; j-- {
+		r[j] = x[i]
+		i--
+	}
+
+	for ; i >= 0; i-- {
 		// out can alias x, because we recover x[i] early
 		xi := x[i]
 		// Hopefully the branch predictor can make these checks not too expensive,
