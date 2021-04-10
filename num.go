@@ -820,7 +820,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 		ctCondCopy(aEven, u, u2)
 	}
 
-	z.limbs = scratch[:size]
+	z.limbs = v
 	return z
 }
 
