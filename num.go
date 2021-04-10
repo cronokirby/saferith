@@ -720,6 +720,14 @@ func cmpEq(a, b []Word) Word {
 	return ctEq(v, 0)
 }
 
+func cmpZero(a []Word) Word {
+	var v Word
+	for i := 0; i < len(a); i++ {
+		v |= a[i]
+	}
+	return ctEq(v, 0)
+}
+
 // CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
 func (z *Nat) CmpEq(x *Nat) int {
 	// Rough Idea: Resize both slices to the maximum length, then compare
@@ -880,22 +888,38 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 //
 // This function assumes that x has an inverse modulo m, naturally
 func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
+	// Idea:
+	//
+	// You want to find Z such that ZX = 1 mod M. The problem is
+	// that the usual routine assumes that m is odd. In this case m is even.
+	// For X to be invertible, we need it to be odd. We can thus invert M mod X,
+	// finding an A satisfying AM = 1 mod X. This means that AM = 1 + KX, for some
+	// positive integer K. Modulo M, this entails that KX = -1 mod M, so -K provides
+	// us with an inverse for X.
+	//
+	// To find K, we can calculate (AM - 1) / X, and then subtract this from M, to get our inverse.
 	size := len(m.limbs)
-	scratch := make([]Word, size)
-	scratch2 := make([]Word, size)
 	// We want to invert m modulo x, so we first calculate the reduced version, before inverting
 	var newZ Nat
 	newZ.limbs = divDouble(m.limbs, x.limbs, []Word{})
 	newZ.modInverse(&newZ, x)
-	inverseZero := cmpEq(newZ.limbs, scratch2)
+	inverseZero := cmpZero(newZ.limbs)
 	newZ.Mul(&newZ, m, uint(2*size*_W))
 	newZ.limbs = newZ.resizedLimbs(2 * size)
 	subVW(newZ.limbs, newZ.limbs, 1)
 	divDouble(newZ.limbs, x.limbs, newZ.limbs)
-	subVV(scratch, m.limbs, newZ.limbs[:size])
-	// If the inverse was zero, this means that x was 1
-	scratch2[0] = 1
-	ctCondCopy(inverseZero, scratch, scratch2)
-	z.limbs = scratch
+	// The result fits on a single half of newZ, but we need to subtract it from m.
+	// We can use the other half of newZ, and then copy it back over if we need to keep it
+	subVV(newZ.limbs[size:], m.limbs, newZ.limbs[:size])
+	// If the inverse was zero, then x was 1, and so we should return 1.
+	// We go ahead and prepare this result, but expect to copy over the subtraction
+	// we just calculated soon over, in the usual case.
+	newZ.limbs[0] = 1
+	for i := 1; i < size; i++ {
+		newZ.limbs[i] = 0
+	}
+	ctCondCopy(1^inverseZero, newZ.limbs[:size], newZ.limbs[size:])
+
+	z.limbs = newZ.limbs[:size]
 	return z
 }
