@@ -716,6 +716,9 @@ func cmpEq(a, b []Word) Word {
 	return ctEq(v, 0)
 }
 
+// cmpZero checks if a slice is equal to zero, in constant time
+//
+// LEAK: the length of a
 func cmpZero(a []Word) Word {
 	var v Word
 	for i := 0; i < len(a); i++ {
