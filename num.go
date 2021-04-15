@@ -413,7 +413,7 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 
 	// We want to use a1:a0 / b0 - 1 as our estimate. If rawQ is 0, we should
 	// use 0 as our estimate. Another edge case when an overflow happens in the quotient.
-	// It casn be shown that this happens when a1 == b0. In this case, we want
+	// It can be shown that this happens when a1 == b0. In this case, we want
 	// to use the maximum value for q
 	rawQ, _ := div(a1, a0, b0)
 	q := ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
