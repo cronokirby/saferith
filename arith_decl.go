@@ -7,12 +7,10 @@
 package safenum
 
 // implemented in arith_$GOARCH.s
-func mulWW(x, y Word) (z1, z0 Word)
 func addVV(z, x, y []Word) (c Word)
 func subVV(z, x, y []Word) (c Word)
 func addVW(z, x []Word, y Word) (c Word)
 func subVW(z, x []Word, y Word) (c Word)
 func shlVU(z, x []Word, s uint) (c Word)
 func shrVU(z, x []Word, s uint) (c Word)
-func mulAddVWW(z, x []Word, y, r Word) (c Word)
 func addMulVVW(z, x []Word, y Word) (c Word)

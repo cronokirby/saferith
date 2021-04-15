@@ -9,16 +9,6 @@
 // This file provides fast assembly versions for the elementary
 // arithmetic operations on vectors implemented in arith.go.
 
-// func mulWW(x, y Word) (z1, z0 Word)
-TEXT ·mulWW(SB),NOSPLIT,$0
-	MOVQ x+0(FP), AX
-	MULQ y+8(FP)
-	MOVQ DX, z1+16(FP)
-	MOVQ AX, z0+24(FP)
-	RET
-
-
-
 // The carry bit is saved with SBBQ Rx, Rx: if the carry was set, Rx is -1, otherwise it is 0.
 // It is restored with ADDQ Rx, Rx: if Rx was -1 the carry is set, otherwise it is cleared.
 // This is faster than using rotate instructions.
@@ -135,8 +125,6 @@ E2:	NEGQ CX
 // func addVW(z, x []Word, y Word) (c Word)
 TEXT ·addVW(SB),NOSPLIT,$0
 	MOVQ z_len+8(FP), DI
-	CMPQ DI, $32
-	JG large
 	MOVQ x+24(FP), R8
 	MOVQ y+48(FP), CX	// c = y
 	MOVQ z+0(FP), R10
@@ -183,16 +171,12 @@ L3:	// n > 0
 
 E3:	MOVQ CX, c+56(FP)	// return c
 	RET
-large:
-	JMP ·addVWlarge(SB)
 
 
 // func subVW(z, x []Word, y Word) (c Word)
 // (same as addVW except for SUBQ/SBBQ instead of ADDQ/ADCQ and label names)
 TEXT ·subVW(SB),NOSPLIT,$0
 	MOVQ z_len+8(FP), DI
-	CMPQ DI, $32
-	JG large
 	MOVQ x+24(FP), R8
 	MOVQ y+48(FP), CX	// c = y
 	MOVQ z+0(FP), R10
@@ -240,8 +224,6 @@ L4:	// n > 0
 
 E4:	MOVQ CX, c+56(FP)	// return c
 	RET
-large:
-	JMP ·subVWlarge(SB)
 
 
 // func shlVU(z, x []Word, s uint) (c Word)
@@ -314,67 +296,6 @@ X9a:	SHRQ CX, AX		// w1>>s
 
 X9b:	MOVQ $0, c+56(FP)
 	RET
-
-
-// func mulAddVWW(z, x []Word, y, r Word) (c Word)
-TEXT ·mulAddVWW(SB),NOSPLIT,$0
-	MOVQ z+0(FP), R10
-	MOVQ x+24(FP), R8
-	MOVQ y+48(FP), R9
-	MOVQ r+56(FP), CX	// c = r
-	MOVQ z_len+8(FP), R11
-	MOVQ $0, BX		// i = 0
-
-	CMPQ R11, $4
-	JL E5
-
-U5:	// i+4 <= n
-	// regular loop body unrolled 4x
-	MOVQ (0*8)(R8)(BX*8), AX
-	MULQ R9
-	ADDQ CX, AX
-	ADCQ $0, DX
-	MOVQ AX, (0*8)(R10)(BX*8)
-	MOVQ DX, CX
-	MOVQ (1*8)(R8)(BX*8), AX
-	MULQ R9
-	ADDQ CX, AX
-	ADCQ $0, DX
-	MOVQ AX, (1*8)(R10)(BX*8)
-	MOVQ DX, CX
-	MOVQ (2*8)(R8)(BX*8), AX
-	MULQ R9
-	ADDQ CX, AX
-	ADCQ $0, DX
-	MOVQ AX, (2*8)(R10)(BX*8)
-	MOVQ DX, CX
-	MOVQ (3*8)(R8)(BX*8), AX
-	MULQ R9
-	ADDQ CX, AX
-	ADCQ $0, DX
-	MOVQ AX, (3*8)(R10)(BX*8)
-	MOVQ DX, CX
-	ADDQ $4, BX		// i += 4
-
-	LEAQ 4(BX), DX
-	CMPQ DX, R11
-	JLE U5
-	JMP E5
-
-L5:	MOVQ (R8)(BX*8), AX
-	MULQ R9
-	ADDQ CX, AX
-	ADCQ $0, DX
-	MOVQ AX, (R10)(BX*8)
-	MOVQ DX, CX
-	ADDQ $1, BX		// i++
-
-E5:	CMPQ BX, R11		// i < n
-	JL L5
-
-	MOVQ CX, c+64(FP)
-	RET
-
 
 // func addMulVVW(z, x []Word, y Word) (c Word)
 TEXT ·addMulVVW(SB),NOSPLIT,$0
