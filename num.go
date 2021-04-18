@@ -749,6 +749,13 @@ func (z *Nat) Cmp(x *Nat) int {
 	return subtle.ConstantTimeSelect(int(eq), 0, subtle.ConstantTimeSelect(int(geq), 1, -1))
 }
 
+// CmpMod compares this natural number with a modulus, returning 0 if z == m, -1 if z < m, and 1 if z > m
+//
+// This doesn't leak anything about the values of the numbers, but the same warnings as for Cmp apply.
+func (z *Nat) CmpMod(m *Modulus) int {
+	return z.Cmp(&m.nat)
+}
+
 // EqZero compares z to 0, returning true if they're equal
 //
 // While calling this function will not leak whether or not this number is equal to zero,
