@@ -706,17 +706,6 @@ func cmpGeq(x []Word, y []Word) Word {
 	return res
 }
 
-// cmpEq compares two slices of the same length for equality, in constant time
-//
-// LEAK: the length of a, and b
-func cmpEq(a, b []Word) Word {
-	var v Word
-	for i := 0; i < len(a) && i < len(b); i++ {
-		v |= a[i] ^ b[i]
-	}
-	return ctEq(v, 0)
-}
-
 // cmpZero checks if a slice is equal to zero, in constant time
 //
 // LEAK: the length of a
