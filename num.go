@@ -756,6 +756,11 @@ func (z *Nat) Cmp(x *Nat) int {
 	return subtle.ConstantTimeSelect(int(eq), 0, subtle.ConstantTimeSelect(int(geq), 1, -1))
 }
 
+// EqZero compares z to 0, returning true if they're equal
+func (z *Nat) EqZero() bool {
+	return cmpZero(z.limbs) == 1
+}
+
 // modInverse calculates the inverse of a reduced x modulo m
 //
 // This assumes that m is an odd number, but not that it's truncated
