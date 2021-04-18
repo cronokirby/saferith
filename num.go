@@ -721,6 +721,10 @@ func cmpZero(a []Word) Word {
 //
 // This leaks nothing about the values of the numbers, except for their rspective
 // announced lengths.
+//
+// Be mindful that even though the comparison is done without leaks, branching on the result
+// can introduce a leak of this result. Because of this, be careful with how you use
+// this function.
 func (z *Nat) Cmp(x *Nat) int {
 	// Rough Idea: Resize both slices to the maximum length, then compare
 	// using that length
@@ -746,6 +750,10 @@ func (z *Nat) Cmp(x *Nat) int {
 }
 
 // EqZero compares z to 0, returning true if they're equal
+//
+// While calling this function will not leak whether or not this number is equal to zero,
+// an if condition using its result can leak this information. Because of this,
+// be mindful to not misuse this function.
 func (z *Nat) EqZero() bool {
 	return cmpZero(z.limbs) == 1
 }
