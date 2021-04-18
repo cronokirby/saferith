@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"crypto/subtle"
 	"math/bits"
 )
 
@@ -727,8 +728,11 @@ func cmpZero(a []Word) Word {
 	return ctEq(v, 0)
 }
 
-// CmpEq compares two natural numbers, returning 1 if they're equal and 0 otherwise
-func (z *Nat) CmpEq(x *Nat) int {
+// Cmp compares two natural numbers, returning 0 if equal, -1 if z < x, and 1 if z > x
+//
+// This leaks nothing about the values of the numbers, except for their rspective
+// announced lengths.
+func (z *Nat) Cmp(x *Nat) int {
 	// Rough Idea: Resize both slices to the maximum length, then compare
 	// using that length
 
@@ -741,7 +745,15 @@ func (z *Nat) CmpEq(x *Nat) int {
 	}
 	zLimbs := z.resizedLimbs(size)
 	xLimbs := x.resizedLimbs(size)
-	return int(cmpEq(xLimbs, zLimbs))
+
+	eq := Word(1)
+	geq := Word(0)
+	for i := 0; i < len(zLimbs) && i < len(xLimbs); i++ {
+		eq_at_i := ctEq(zLimbs[i], xLimbs[i])
+		eq &= eq_at_i
+		geq = ctIfElse(eq_at_i, geq, ctGt(zLimbs[i], xLimbs[i]))
+	}
+	return subtle.ConstantTimeSelect(int(eq), 0, subtle.ConstantTimeSelect(int(geq), 1, -1))
 }
 
 // modInverse calculates the inverse of a reduced x modulo m

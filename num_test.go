@@ -28,11 +28,11 @@ func testAddZeroIdentity(n Nat) bool {
 	var x, zero Nat
 	zero.SetUint64(0)
 	x.Add(&n, &zero, uint(len(n.limbs)*_W))
-	if n.CmpEq(&x) != 1 {
+	if n.Cmp(&x) != 0 {
 		return false
 	}
 	x.Add(&zero, &n, uint(len(n.limbs)*_W))
-	return n.CmpEq(&x) == 1
+	return n.Cmp(&x) == 0
 }
 
 func TestAddZeroIdentity(t *testing.T) {
@@ -47,7 +47,7 @@ func testAddCommutative(a Nat, b Nat) bool {
 	for _, x := range []uint{256, 128, 64, 32, 8} {
 		aPlusB.Add(&a, &b, x)
 		bPlusA.Add(&b, &a, x)
-		if aPlusB.CmpEq(&bPlusA) != 1 {
+		if aPlusB.Cmp(&bPlusA) != 0 {
 			return false
 		}
 	}
@@ -68,7 +68,7 @@ func testAddAssociative(a Nat, b Nat, c Nat) bool {
 		order1.Add(&order1, &c, x)
 		order2 = *order2.Add(&b, &c, x)
 		order2.Add(&a, &order2, x)
-		if order1.CmpEq(&order2) != 1 {
+		if order1.Cmp(&order2) != 0 {
 			return false
 		}
 	}
@@ -87,7 +87,7 @@ func testMulCommutative(a Nat, b Nat) bool {
 	for _, x := range []uint{256, 128, 64, 32, 8} {
 		aTimesB.Mul(&a, &b, x)
 		bTimesA.Mul(&b, &a, x)
-		if aTimesB.CmpEq(&bTimesA) != 1 {
+		if aTimesB.Cmp(&bTimesA) != 0 {
 			return false
 		}
 	}
@@ -108,7 +108,7 @@ func testMulAssociative(a Nat, b Nat, c Nat) bool {
 		order1.Mul(&order1, &c, x)
 		order2 = *order2.Mul(&b, &c, x)
 		order2.Mul(&a, &order2, x)
-		if order1.CmpEq(&order2) != 1 {
+		if order1.Cmp(&order2) != 0 {
 			return false
 		}
 	}
@@ -126,11 +126,11 @@ func testMulOneIdentity(n Nat) bool {
 	var x, one Nat
 	one.SetUint64(1)
 	x.Mul(&n, &one, uint(len(n.limbs)*_W))
-	if n.CmpEq(&x) != 1 {
+	if n.Cmp(&x) != 0 {
 		return false
 	}
 	x.Mul(&one, &n, uint(len(n.limbs)*_W))
-	return n.CmpEq(&x) == 1
+	return n.Cmp(&x) == 0
 }
 
 func TestMulOneIdentity(t *testing.T) {
@@ -144,7 +144,7 @@ func testModIdempotent(a Nat, m Modulus) bool {
 	var way1, way2 Nat
 	way1.Mod(&a, &m)
 	way2.Mod(&way1, &m)
-	return way1.CmpEq(&way2) == 1
+	return way1.Cmp(&way2) == 0
 }
 
 func TestModIdempotent(t *testing.T) {
@@ -158,7 +158,7 @@ func testModAddCommutative(a Nat, b Nat, m Modulus) bool {
 	var aPlusB, bPlusA Nat
 	aPlusB.ModAdd(&a, &b, &m)
 	bPlusA.ModAdd(&b, &a, &m)
-	return aPlusB.CmpEq(&bPlusA) == 1
+	return aPlusB.Cmp(&bPlusA) == 0
 }
 
 func TestModAddCommutative(t *testing.T) {
@@ -174,7 +174,7 @@ func testModAddAssociative(a Nat, b Nat, c Nat, m Modulus) bool {
 	order1.ModAdd(&order1, &c, &m)
 	order2 = *order2.ModAdd(&b, &c, &m)
 	order2.ModAdd(&a, &order2, &m)
-	return order1.CmpEq(&order2) == 1
+	return order1.Cmp(&order2) == 0
 }
 
 func TestModAddAssociative(t *testing.T) {
@@ -188,7 +188,7 @@ func testModMulCommutative(a Nat, b Nat, m Modulus) bool {
 	var aPlusB, bPlusA Nat
 	aPlusB.ModMul(&a, &b, &m)
 	bPlusA.ModMul(&b, &a, &m)
-	return aPlusB.CmpEq(&bPlusA) == 1
+	return aPlusB.Cmp(&bPlusA) == 0
 }
 
 func TestModMulCommutative(t *testing.T) {
@@ -204,7 +204,7 @@ func testModMulAssociative(a Nat, b Nat, c Nat, m Modulus) bool {
 	order1.ModMul(&order1, &c, &m)
 	order2 = *order2.ModMul(&b, &c, &m)
 	order2.ModMul(&a, &order2, &m)
-	return order1.CmpEq(&order2) == 1
+	return order1.Cmp(&order2) == 0
 }
 
 func TestModMulAssociative(t *testing.T) {
@@ -222,12 +222,12 @@ func testModInverseMultiplication(a Nat) bool {
 	for _, x := range []uint64{3, 5, 7, 13, 19, 47, 97} {
 		m = ModulusFromUint64(x)
 		scratch.Mod(&a, &m)
-		if scratch.CmpEq(&zero) == 1 {
+		if scratch.Cmp(&zero) == 0 {
 			continue
 		}
 		scratch.ModInverse(&a, &m)
 		scratch.ModMul(&scratch, &a, &m)
-		if scratch.CmpEq(&one) != 1 {
+		if scratch.Cmp(&one) != 0 {
 			return false
 		}
 	}
@@ -246,7 +246,7 @@ func testModInverseMinusOne(a Nat) bool {
 	a.limbs[0] &= ^Word(1)
 	var zero Nat
 	zero.SetUint64(0)
-	if a.CmpEq(&zero) == 1 {
+	if a.Cmp(&zero) == 0 {
 		return true
 	}
 	var one Nat
@@ -255,7 +255,7 @@ func testModInverseMinusOne(a Nat) bool {
 	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
 	m := ModulusFromNat(z)
 	z.ModInverse(&a, &m)
-	return z.CmpEq(&a) == 1
+	return z.Cmp(&a) == 0
 }
 
 func TestModInverseMinusOne(t *testing.T) {
@@ -270,7 +270,7 @@ func testModInverseEvenMinusOne(a Nat) bool {
 	a.limbs[0] |= 1
 	var zero Nat
 	zero.SetUint64(0)
-	if a.CmpEq(&zero) == 1 {
+	if a.Cmp(&zero) == 0 {
 		return true
 	}
 	var one Nat
@@ -278,7 +278,7 @@ func testModInverseEvenMinusOne(a Nat) bool {
 	var z Nat
 	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
 	z.ModInverseEven(&a, &z)
-	return z.CmpEq(&a) == 1
+	return z.Cmp(&a) == 0
 }
 
 func TestModInverseEvenMinusOne(t *testing.T) {
@@ -293,14 +293,14 @@ func testModInverseEvenOne(a Nat) bool {
 	a.limbs[0] &= ^Word(1)
 	var zero Nat
 	zero.SetUint64(0)
-	if a.CmpEq(&zero) == 1 {
+	if a.Cmp(&zero) == 0 {
 		return true
 	}
 	var one Nat
 	one.SetUint64(1)
 	var z Nat
 	z.ModInverseEven(&one, &a)
-	return z.CmpEq(&one) == 1
+	return z.Cmp(&one) == 0
 }
 
 func TestModInverseEvenOne(t *testing.T) {
@@ -318,7 +318,7 @@ func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	aPlusB.Add(&a, &b, uint(len(a.limbs)*_W)+1)
 	way1.ModMul(&expA, &expB, &m)
 	way2.Exp(&x, &aPlusB, &m)
-	return way1.CmpEq(&way2) == 1
+	return way1.Cmp(&way2) == 0
 }
 
 func TestExpAddition(t *testing.T) {
@@ -332,16 +332,16 @@ func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
 	y.SetUint64(0)
-	if x.CmpEq(&y) != 1 {
+	if x.Cmp(&y) != 0 {
 		t.Errorf("%+v != %+v", x, y)
 	}
 	x.SetUint64(1)
-	if x.CmpEq(&y) == 1 {
+	if x.Cmp(&y) == 0 {
 		t.Errorf("%+v == %+v", x, y)
 	}
 	x.SetUint64(0x1111)
 	y.SetUint64(0x1111)
-	if x.CmpEq(&y) != 1 {
+	if x.Cmp(&y) != 0 {
 		t.Errorf("%+v != %+v", x, y)
 	}
 }
@@ -352,12 +352,12 @@ func TestAddExamples(t *testing.T) {
 	y.SetUint64(100)
 	z.SetUint64(200)
 	x = *x.Add(&x, &y, 8)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	z.SetUint64(300 - 256)
 	x = *x.Add(&x, &y, 8)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(0xf3e5487232169930)
@@ -365,7 +365,7 @@ func TestAddExamples(t *testing.T) {
 	z.SetUint64(0xf3e5487232169930)
 	var x2 Nat
 	x2.Add(&x, &y, 128)
-	if x2.CmpEq(&z) != 1 {
+	if x2.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -376,12 +376,12 @@ func TestMulExamples(t *testing.T) {
 	y.SetUint64(10)
 	z.SetUint64(100)
 	x = *x.Mul(&x, &y, 8)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	z.SetUint64(232)
 	x = *x.Mul(&x, &y, 8)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -393,7 +393,7 @@ func TestModAddExamples(t *testing.T) {
 	y.SetUint64(40)
 	x = *x.ModAdd(&x, &y, &m)
 	z.SetUint64(2)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -405,14 +405,14 @@ func TestModMulExamples(t *testing.T) {
 	y.SetUint64(40)
 	x = *x.ModMul(&x, &y, &m)
 	z.SetUint64(1)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetUint64(1)
 	x = *x.ModMul(&x, &x, &m)
 	z.SetUint64(1)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
@@ -420,7 +420,7 @@ func TestModMulExamples(t *testing.T) {
 	y.SetUint64(13641051446569424315)
 	x = *x.ModMul(&x, &y, &m)
 	z.SetUint64(12559215458690093993)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -431,14 +431,14 @@ func TestModExamples(t *testing.T) {
 	m := ModulusFromUint64(13)
 	x.Mod(&x, &m)
 	test.SetUint64(1)
-	if x.CmpEq(&test) != 1 {
+	if x.Cmp(&test) != 0 {
 		t.Errorf("%+v != %+v", x, test)
 	}
 	m = ModulusFromBytes([]byte{13, 0, 0, 0, 0, 0, 0, 0, 1})
 	x.SetBytes([]byte{41, 0, 0, 0, 0, 0, 0, 0, 0})
 	x.Mod(&x, &m)
 	test.SetBytes([]byte{1, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD})
-	if x.CmpEq(&test) != 1 {
+	if x.Cmp(&test) != 0 {
 		t.Errorf("%+v != %+v", x, test)
 	}
 }
@@ -449,20 +449,20 @@ func TestModInverseExamples(t *testing.T) {
 	m := ModulusFromUint64(13)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(7)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(16359684999990746055)
 	m = ModulusFromUint64(7)
 	x = *x.ModInverse(&x, &m)
 	z.SetUint64(3)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(461423694560)
 	m = ModulusFromUint64(461423694561)
 	z.ModInverse(&x, &m)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -474,7 +474,7 @@ func TestExpExamples(t *testing.T) {
 	m := ModulusFromUint64(13)
 	x = *x.Exp(&x, &y, &m)
 	z.SetUint64(1)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1})
@@ -482,7 +482,7 @@ func TestExpExamples(t *testing.T) {
 	y.SetUint64(2)
 	x = *x.Exp(&x, &y, &m)
 	z.SetUint64(1)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -491,12 +491,12 @@ func TestSetBytesExamples(t *testing.T) {
 	var x, z Nat
 	x.SetBytes([]byte{0x12, 0x34, 0x56})
 	z.SetUint64(0x123456)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetBytes([]byte{0x00, 0x00, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF})
 	z.SetUint64(0xAABBCCDDEEFF)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
@@ -528,33 +528,33 @@ func TestModInverseEvenExamples(t *testing.T) {
 	m.SetUint64(10)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(9)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(1)
 	m.SetUint64(10)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(1)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(19)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(9)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(99)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(9)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(999)
 	m.SetUint64(1000)
 	x.ModInverseEven(&x, &m)
 	z.SetUint64(999)
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	// There's an edge case when the modulus is much larger than the input,
@@ -564,7 +564,7 @@ func TestModInverseEvenExamples(t *testing.T) {
 	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0})
 	x.ModInverseEven(&x, &m)
 	z.SetBytes([]byte{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAB})
-	if x.CmpEq(&z) != 1 {
+	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
