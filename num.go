@@ -170,16 +170,16 @@ func (z *Nat) unaliasedLimbs(x *Nat) []Word {
 //
 // This is the size with leading zeros removed. This leaks the number
 // of such zeros
-func trueSize(limbs []Word) int {
-	var size int
-	for size = len(limbs); size > 0 && limbs[size-1] == 0; size-- {
+func trueSize(limbs []Word) uint {
+	var size uint
+	for size = uint(len(limbs)); size > 0 && limbs[size-1] == 0; size-- {
 	}
 	return size
 }
 
 // AnnouncedLen returns the number of bits this number is publicly known to have
-func (z *Nat) AnnouncedLen() int {
-	return len(z.limbs) * _W
+func (z *Nat) AnnouncedLen() uint {
+	return uint(len(z.limbs)) * _W
 }
 
 // TrueLen calculates the exact number of bits needed to represent z
@@ -187,11 +187,11 @@ func (z *Nat) AnnouncedLen() int {
 // This function will leak this value, and violates the standard contract
 // around Nats and announced length. For most purposes, `AnnouncedLen` should
 // be used instead.
-func (z *Nat) TrueLen() int {
+func (z *Nat) TrueLen() uint {
 	limbSize := trueSize(z.limbs)
 	size := limbSize * _W
 	if limbSize > 0 {
-		size -= bits.LeadingZeros(uint(z.limbs[limbSize-1]))
+		size -= uint(bits.LeadingZeros(uint(z.limbs[limbSize-1])))
 	}
 	return size
 }
@@ -335,7 +335,7 @@ func (z *Nat) Uint64() uint64 {
 type Modulus struct {
 	nat Nat
 	// the number of leading zero bits
-	leading int
+	leading uint
 	// The inverse of the least significant limb, modulo W
 	m0inv Word
 }
@@ -363,7 +363,7 @@ func (m *Modulus) precomputeValues() {
 	if m.nat.limbs[0]&1 == 0 {
 		panic("Modulus is even")
 	}
-	m.leading = bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1]))
+	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
 	m.m0inv = invertModW(m.nat.limbs[0])
 	m.m0inv = -m.m0inv
 }
@@ -403,7 +403,7 @@ func ModulusFromNat(nat Nat) Modulus {
 	var m Modulus
 	// We make a copy here, to avoid any aliasing between buffers
 	size := trueSize(nat.limbs)
-	m.nat.limbs = m.nat.resizedLimbs(size)
+	m.nat.limbs = m.nat.resizedLimbs(int(size))
 	copy(m.nat.limbs, nat.limbs)
 	m.precomputeValues()
 	return m
@@ -417,8 +417,8 @@ func (m *Modulus) Bytes() []byte {
 // BitLen returns the exact number of bits used to store this Modulus
 //
 // Moduli are allowed to leak this value.
-func (m *Modulus) BitLen() int {
-	return len(m.nat.limbs)*_W - m.leading
+func (m *Modulus) BitLen() uint {
+	return uint(len(m.nat.limbs))*_W - m.leading
 }
 
 // Cmp compares two moduli, returning -1 if m < n, 0 if m == n, and 1 if m > n
