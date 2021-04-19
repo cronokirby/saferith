@@ -166,6 +166,36 @@ func (z *Nat) unaliasedLimbs(x *Nat) []Word {
 	return res
 }
 
+// trueSize calculates the actual size necessary for representing these limbs
+//
+// This is the size with leading zeros removed. This leaks the number
+// of such zeros
+func trueSize(limbs []Word) int {
+	var size int
+	for size = len(limbs); size > 0 && limbs[size-1] == 0; size-- {
+	}
+	return size
+}
+
+// AnnouncedLen returns the number of bits this number is publicly known to have
+func (z *Nat) AnnouncedLen() int {
+	return len(z.limbs) * _W
+}
+
+// TrueLen calculates the exact number of bits needed to represent z
+//
+// This function will leak this value, and violates the standard contract
+// around Nats and announced length. For most purposes, `AnnouncedLen` should
+// be used instead.
+func (z *Nat) TrueLen() int {
+	limbSize := trueSize(z.limbs)
+	size := limbSize * _W
+	if limbSize > 0 {
+		size -= bits.LeadingZeros(uint(z.limbs[limbSize-1]))
+	}
+	return size
+}
+
 // FillBytes writes out the big endian bytes of a natural number.
 //
 // This will always write out the full capacity of the number, without
@@ -332,17 +362,6 @@ func ModulusFromUint64(x uint64) Modulus {
 	return m
 }
 
-// trueSize calculates the actual size necessary for representing these limbs
-//
-// This is the size with leading zeros removed. This leaks the number
-// of such zeros
-func trueSize(limbs []Word) int {
-	var size int
-	for size = len(limbs); size > 0 && limbs[size-1] == 0; size-- {
-	}
-	return size
-}
-
 // FromBytes creates a new Modulus, converting from big endian bytes
 //
 // This function will remove leading zeros, thus leaking the true size of the modulus.
@@ -375,6 +394,13 @@ func ModulusFromNat(nat Nat) Modulus {
 // Bytes returns the big endian bytes making up the modulus
 func (m *Modulus) Bytes() []byte {
 	return m.nat.Bytes()
+}
+
+// BitLen returns the exact number of bits used to store this Modulus
+//
+// Moduli are allowed to leak this value.
+func (m *Modulus) BitLen() int {
+	return len(m.nat.limbs)*_W - m.leading
 }
 
 // shiftAddIn calculates z = z << _W + x mod m
