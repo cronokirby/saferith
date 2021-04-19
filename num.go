@@ -309,6 +309,24 @@ func (z *Nat) SetUint64(x uint64) *Nat {
 	return z
 }
 
+// Uint64 represents this number as uint64
+//
+// The behavior of this function is undefined if the announced length of z is > 64.
+func (z *Nat) Uint64() uint64 {
+	if len(z.limbs) < 1 {
+		return 0
+	}
+	if _W == 64 {
+		return uint64(z.limbs[0])
+	} else {
+		var ret uint64
+		for i := len(z.limbs) - 1; i >= 0; i-- {
+			ret = (ret << _W) | uint64(z.limbs[i])
+		}
+		return ret
+	}
+}
+
 // Modulus represents a natural number used for modular reduction
 //
 // Unlike with natural numbers, the number of bits need to contain the modulus
