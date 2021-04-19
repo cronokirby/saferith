@@ -421,6 +421,13 @@ func (m *Modulus) BitLen() int {
 	return len(m.nat.limbs)*_W - m.leading
 }
 
+// Cmp compares two moduli, returning -1 if m < n, 0 if m == n, and 1 if m > n
+//
+// This will not leak information about the value of this comparison.
+func (m *Modulus) Cmp(n *Modulus) int {
+	return m.nat.Cmp(&n.nat)
+}
+
 // shiftAddIn calculates z = z << _W + x mod m
 //
 // The length of z and scratch should be len(m) + 1
