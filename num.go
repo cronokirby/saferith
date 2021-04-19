@@ -287,7 +287,7 @@ func (z *Nat) SetUint64(x uint64) *Nat {
 type Modulus struct {
 	nat Nat
 	// the number of leading zero bits
-	leading uint
+	leading int
 	// The inverse of the least significant limb, modulo W
 	m0inv Word
 }
@@ -315,7 +315,7 @@ func (m *Modulus) precomputeValues() {
 	if m.nat.limbs[0]&1 == 0 {
 		panic("Modulus is even")
 	}
-	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
+	m.leading = bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1]))
 	m.m0inv = invertModW(m.nat.limbs[0])
 	m.m0inv = -m.m0inv
 }
