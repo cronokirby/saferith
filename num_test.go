@@ -370,6 +370,15 @@ func TestAddExamples(t *testing.T) {
 	}
 }
 
+func TestSubExamples(t *testing.T) {
+	x := new(Nat).SetUint64(100)
+	y := new(Nat).SetUint64(200)
+	y.Sub(y, x, 8)
+	if y.Cmp(x) != 0 {
+		t.Errorf("%+v != %+v", y, x)
+	}
+}
+
 func TestMulExamples(t *testing.T) {
 	var x, y, z Nat
 	x.SetUint64(10)

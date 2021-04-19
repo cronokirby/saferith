@@ -581,6 +581,28 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	return z
 }
 
+// Sub calculates z <- x - y, modulo 2^cap
+//
+// The capacity is given in bits, and also controls the size of the result.
+func (z *Nat) Sub(x *Nat, y *Nat, cap uint) *Nat {
+	limbCount := int((cap + _W - 1) / _W)
+	xLimbs := x.resizedLimbs(limbCount)
+	yLimbs := y.resizedLimbs(limbCount)
+	z.limbs = z.resizedLimbs(limbCount)
+	subVV(z.limbs, xLimbs, yLimbs)
+	// Now, we need to truncate the last limb
+	bitsToKeep := cap % _W
+	// Checking a function of the cap is ok
+	if bitsToKeep == 0 {
+		return z
+	}
+	mask := ^(^Word(0) << bitsToKeep)
+	// LEAK: the size of z (since we're making an extra access at the end)
+	// OK: this is public information, since cap is public
+	z.limbs[len(z.limbs)-1] &= mask
+	return z
+}
+
 // montgomeryRepresentation calculates zR mod m
 func montgomeryRepresentation(z []Word, scratch []Word, m *Modulus) {
 	// Our strategy is to shift by W, n times, each time reducing modulo m
