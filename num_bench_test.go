@@ -192,12 +192,12 @@ func _benchmarkModAddNat(m *Modulus, b *testing.B) {
 
 func BenchmarkModAddNat(b *testing.B) {
 	m := ModulusFromUint64(13)
-	_benchmarkModAddNat(&m, b)
+	_benchmarkModAddNat(m, b)
 }
 
 func BenchmarkLargeModAddNat(b *testing.B) {
 	m := ModulusFromBytes(largePrime())
-	_benchmarkModAddNat(&m, b)
+	_benchmarkModAddNat(m, b)
 }
 
 func BenchmarkMulNat(b *testing.B) {
@@ -222,12 +222,12 @@ func _benchmarkModMulNat(m *Modulus, b *testing.B) {
 
 func BenchmarkModMulNat(b *testing.B) {
 	m := ModulusFromUint64(13)
-	_benchmarkModMulNat(&m, b)
+	_benchmarkModMulNat(m, b)
 }
 
 func BenchmarkLargeModMulNat(b *testing.B) {
 	m := ModulusFromBytes(largePrime())
-	_benchmarkModMulNat(&m, b)
+	_benchmarkModMulNat(m, b)
 }
 
 func _benchmarkModNat(m *Modulus, b *testing.B) {
@@ -242,12 +242,12 @@ func _benchmarkModNat(m *Modulus, b *testing.B) {
 
 func BenchmarkModNat(b *testing.B) {
 	m := ModulusFromUint64(13)
-	_benchmarkModNat(&m, b)
+	_benchmarkModNat(m, b)
 }
 
 func BenchmarkLargeModNat(b *testing.B) {
 	m := ModulusFromBytes(largePrime())
-	_benchmarkModNat(&m, b)
+	_benchmarkModNat(m, b)
 }
 
 func _benchmarkModInverseNat(m *Modulus, b *testing.B) {
@@ -262,12 +262,12 @@ func _benchmarkModInverseNat(m *Modulus, b *testing.B) {
 
 func BenchmarkModInverseNat(b *testing.B) {
 	m := ModulusFromUint64(13)
-	_benchmarkModInverseNat(&m, b)
+	_benchmarkModInverseNat(m, b)
 }
 
 func BenchmarkLargeModInverseNat(b *testing.B) {
 	m := ModulusFromBytes(largePrime())
-	_benchmarkModInverseNat(&m, b)
+	_benchmarkModInverseNat(m, b)
 }
 
 func _benchmarkModInverseEvenNat(m *Nat, b *testing.B) {
@@ -306,12 +306,12 @@ func _benchmarkExpNat(m *Modulus, b *testing.B) {
 
 func BenchmarkExpNat(b *testing.B) {
 	m := ModulusFromUint64(13)
-	_benchmarkExpNat(&m, b)
+	_benchmarkExpNat(m, b)
 }
 
 func BenchmarkLargeExpNat(b *testing.B) {
 	m := ModulusFromBytes(largePrime())
-	_benchmarkExpNat(&m, b)
+	_benchmarkExpNat(m, b)
 }
 
 func BenchmarkSetBytesNat(b *testing.B) {

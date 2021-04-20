@@ -377,7 +377,7 @@ func (m *Modulus) precomputeValues() {
 }
 
 // SetUint64 sets the modulus according to an integer
-func ModulusFromUint64(x uint64) Modulus {
+func ModulusFromUint64(x uint64) *Modulus {
 	var m Modulus
 	m.nat.SetUint64(x)
 	// edge case for 32 bit limb size
@@ -385,21 +385,21 @@ func ModulusFromUint64(x uint64) Modulus {
 		m.nat.limbs = m.nat.limbs[:1]
 	}
 	m.precomputeValues()
-	return m
+	return &m
 }
 
 // FromBytes creates a new Modulus, converting from big endian bytes
 //
 // This function will remove leading zeros, thus leaking the true size of the modulus.
 // See the documentation for the Modulus type, for more information about this contract.
-func ModulusFromBytes(bytes []byte) Modulus {
+func ModulusFromBytes(bytes []byte) *Modulus {
 	var m Modulus
 	// TODO: You could allocate a smaller buffer to begin with, versus using the Nat method
 	m.nat.SetBytes(bytes)
 
 	m.nat.limbs = m.nat.limbs[:trueSize(m.nat.limbs)]
 	m.precomputeValues()
-	return m
+	return &m
 }
 
 // FromNat creates a new Modulus, using the value of a Nat
@@ -407,14 +407,14 @@ func ModulusFromBytes(bytes []byte) Modulus {
 // This will leak the true size of this natural number. Because of this,
 // the true size of the number should not be sensitive information. This is
 // a stronger requirement than we usually have for Nat.
-func ModulusFromNat(nat Nat) Modulus {
+func ModulusFromNat(nat Nat) *Modulus {
 	var m Modulus
 	// We make a copy here, to avoid any aliasing between buffers
 	size := trueSize(nat.limbs)
 	m.nat.limbs = m.nat.resizedLimbs(int(size))
 	copy(m.nat.limbs, nat.limbs)
 	m.precomputeValues()
-	return m
+	return &m
 }
 
 // Bytes returns the big endian bytes making up the modulus
