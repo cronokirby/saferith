@@ -327,6 +327,15 @@ func (z *Nat) Uint64() uint64 {
 	}
 }
 
+// SetNat copies the value of x into z
+//
+// z will have the same announced length as x.
+func (z *Nat) SetNat(x *Nat) *Nat {
+	z.limbs = z.resizedLimbs(len(x.limbs))
+	copy(z.limbs, x.limbs)
+	return z
+}
+
 // Modulus represents a natural number used for modular reduction
 //
 // Unlike with natural numbers, the number of bits need to contain the modulus
