@@ -559,6 +559,24 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	return z
 }
 
+func (z *Nat) ModSub(x *Nat, y *Nat, m *Modulus) *Nat {
+	var xModM, yModM Nat
+	// First reduce x and y mod m
+	xModM.Mod(x, m)
+	yModM.Mod(y, m)
+
+	size := len(m.nat.limbs)
+	scratch := z.resizedLimbs(2 * size)
+	z.limbs = scratch[:size]
+	addResult := scratch[size:]
+
+	subCarry := subVV(z.limbs, xModM.limbs, yModM.limbs)
+	underflow := ctEq(subCarry, 1)
+	addVV(addResult, z.limbs, m.nat.limbs)
+	ctCondCopy(underflow, z.limbs, addResult)
+	return z
+}
+
 // Add calculates z <- x + y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.

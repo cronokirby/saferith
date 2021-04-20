@@ -184,6 +184,22 @@ func TestModAddAssociative(t *testing.T) {
 	}
 }
 
+func testModAddModSubInverse(a Nat, b Nat, m Modulus) bool {
+	var c Nat
+	c.ModAdd(&a, &b, &m)
+	c.ModSub(&c, &b, &m)
+	expected := new(Nat)
+	expected.Mod(&a, &m)
+	return c.Cmp(expected) == 0
+}
+
+func TestModAddModSubInverse(t *testing.T) {
+	err := quick.Check(testModAddModSubInverse, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testModMulCommutative(a Nat, b Nat, m Modulus) bool {
 	var aPlusB, bPlusA Nat
 	aPlusB.ModMul(&a, &b, &m)
@@ -574,6 +590,17 @@ func TestModInverseEvenExamples(t *testing.T) {
 	x.ModInverseEven(&x, &m)
 	z.SetBytes([]byte{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAB})
 	if x.Cmp(&z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
+
+func TestModSubExamples(t *testing.T) {
+	m := ModulusFromUint64(13)
+	x := new(Nat).SetUint64(0)
+	y := new(Nat).SetUint64(1)
+	x.ModSub(x, y, &m)
+	z := new(Nat).SetUint64(12)
+	if x.Cmp(z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
