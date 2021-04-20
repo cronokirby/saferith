@@ -341,6 +341,8 @@ func (z *Nat) SetNat(x *Nat) *Nat {
 // Unlike with natural numbers, the number of bits need to contain the modulus
 // is assumed to be public. Operations are allowed to leak this size, and creating
 // a modulus will remove unnecessary zeros.
+//
+// Operations on Moduli assume that the Modulus is odd, except for Modular reduction.
 type Modulus struct {
 	nat Nat
 	// the number of leading zero bits
@@ -368,9 +370,6 @@ func invertModW(x Word) Word {
 func (m *Modulus) precomputeValues() {
 	if len(m.nat.limbs) < 1 {
 		panic("Modulus is empty")
-	}
-	if m.nat.limbs[0]&1 == 0 {
-		panic("Modulus is even")
 	}
 	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
 	m.m0inv = invertModW(m.nat.limbs[0])
