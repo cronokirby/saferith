@@ -603,3 +603,13 @@ func TestModSubExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
+
+func TestModSqrtExamples(t *testing.T) {
+	m := ModulusFromUint64(13)
+	x := new(Nat).SetUint64(4)
+	x.ModSqrt(x, m)
+	z := new(Nat).SetUint64(11)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}

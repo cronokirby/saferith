@@ -794,6 +794,15 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	return z
 }
 
+// cmpEq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
+func cmpEq(x []Word, y []Word) Word {
+	res := Word(1)
+	for i := 0; i < len(x) && i < len(y); i++ {
+		res &= ctEq(x[i], y[i])
+	}
+	return res
+}
+
 // cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
 func cmpGeq(x []Word, y []Word) Word {
 	res := Word(1)
@@ -1055,5 +1064,57 @@ func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	ctCondCopy(1^inverseZero, newZ.limbs[:size], newZ.limbs[size:])
 
 	z.limbs = newZ.limbs[:size]
+	return z
+}
+
+// ModSqrt calculates the square root of x modulo p
+//
+// p must be a prime number, and x must actually have a square root
+// modulo p. The result is undefined if these conditions aren't satisfied
+//
+// This function will leak information about the value of p. This isn't intended
+// to be used in situations where the modulus isn't publicly known.
+func (z *Nat) ModSqrt(x *Nat, p *Modulus) *Nat {
+	scratch := new(Nat)
+	x = new(Nat).SetNat(x)
+
+	one := new(Nat).SetUint64(1)
+	trailingZeros := 1
+	reducedPminusOne := new(Nat).Sub(&p.nat, one, p.BitLen())
+	shrVU(reducedPminusOne.limbs, reducedPminusOne.limbs, 1)
+
+	nonSquare := new(Nat).SetUint64(2)
+	for scratch.Exp(nonSquare, reducedPminusOne, p).Cmp(one) == 0 {
+		nonSquare.Add(nonSquare, one, p.BitLen())
+	}
+
+	for reducedPminusOne.limbs[0]&1 == 0 {
+		trailingZeros += 1
+		shrVU(reducedPminusOne.limbs, reducedPminusOne.limbs, 1)
+	}
+
+	reducedQminusOne := new(Nat).Sub(reducedPminusOne, one, p.BitLen())
+	shrVU(reducedQminusOne.limbs, reducedQminusOne.limbs, 1)
+
+	c := new(Nat).Exp(nonSquare, reducedPminusOne, p)
+
+	z.Exp(x, reducedQminusOne, p)
+	t := new(Nat).ModMul(z, z, p)
+	t.ModMul(t, x, p)
+	z.ModMul(z, x, p)
+	b := new(Nat).SetNat(t)
+	one.limbs = one.resizedLimbs(len(b.limbs))
+	for i := trailingZeros; i > 1; i-- {
+		for j := 1; j < i-1; j++ {
+			b.ModMul(b, b, p)
+		}
+		sel := 1 ^ cmpEq(b.limbs, one.limbs)
+		scratch.ModMul(z, c, p)
+		ctCondCopy(sel, z.limbs, scratch.limbs)
+		c.ModMul(c, c, p)
+		scratch.ModMul(t, c, p)
+		ctCondCopy(sel, t.limbs, scratch.limbs)
+		b.SetNat(t)
+	}
 	return z
 }
