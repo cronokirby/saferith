@@ -343,6 +343,45 @@ func TestExpAddition(t *testing.T) {
 	}
 }
 
+func testSqrtRoundTrip(x *Nat, p *Modulus) bool {
+	xSquared := x.ModMul(x, x, p)
+	xRoot := new(Nat).ModSqrt(xSquared, p)
+	xRoot.ModMul(xRoot, xRoot, p)
+	return xRoot.Cmp(xSquared) == 0
+}
+
+func testModSqrt(x Nat) bool {
+	p := ModulusFromBytes([]byte{
+		13,
+	})
+	if !testSqrtRoundTrip(&x, p) {
+		return false
+	}
+	p = ModulusFromUint64((1 << 61) - 1)
+	if !testSqrtRoundTrip(&x, p) {
+		return false
+	}
+	p = ModulusFromBytes([]byte{
+		0x1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	})
+	if !testSqrtRoundTrip(&x, p) {
+		return false
+	}
+	p = ModulusFromBytes([]byte{
+		0x3,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfb,
+	})
+	return testSqrtRoundTrip(&x, p)
+}
+
+func TestModSqrt(t *testing.T) {
+	err := quick.Check(testModSqrt, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
