@@ -1071,9 +1071,7 @@ func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 func (z *Nat) modSqrt3Mod4(x *Nat, p *Modulus) *Nat {
 	// In this case, we can do x^(p + 1) / 4
 	e := new(Nat).SetNat(&p.nat)
-	one := make([]Word, len(e.limbs))
-	one[0] = 1
-	carry := addVV(e.limbs, e.limbs, one)
+	carry := addVW(e.limbs, e.limbs, 1)
 	shrVU(e.limbs, e.limbs, 2)
 	e.limbs[len(e.limbs)-1] |= (carry << (_W - 2))
 	return z.Exp(x, e, p)
