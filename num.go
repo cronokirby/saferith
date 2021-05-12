@@ -1067,14 +1067,20 @@ func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	return z
 }
 
-// ModSqrt calculates the square root of x modulo p
-//
-// p must be a prime number, and x must actually have a square root
-// modulo p. The result is undefined if these conditions aren't satisfied
-//
-// This function will leak information about the value of p. This isn't intended
-// to be used in situations where the modulus isn't publicly known.
-func (z *Nat) ModSqrt(x *Nat, p *Modulus) *Nat {
+// modSqrt3Mod4 sets z <- sqrt(x) mod p, when p is a prime with p = 3 mod 4
+func (z *Nat) modSqrt3Mod4(x *Nat, p *Modulus) *Nat {
+	// In this case, we can do x^(p + 1) / 4
+	e := new(Nat).SetNat(&p.nat)
+	one := make([]Word, len(e.limbs))
+	one[0] = 1
+	carry := addVV(e.limbs, e.limbs, one)
+	shrVU(e.limbs, e.limbs, 2)
+	e.limbs[len(e.limbs)-1] |= (carry << (_W - 2))
+	return z.Exp(x, e, p)
+}
+
+// tonelliShanks sets z <- sqrt(x) mod p, for any prime modulus
+func (z *Nat) tonelliShanks(x *Nat, p *Modulus) *Nat {
 	scratch := new(Nat)
 	x = new(Nat).SetNat(x)
 
@@ -1117,4 +1123,21 @@ func (z *Nat) ModSqrt(x *Nat, p *Modulus) *Nat {
 		b.SetNat(t)
 	}
 	return z
+}
+
+// ModSqrt calculates the square root of x modulo p
+//
+// p must be a prime number, and x must actually have a square root
+// modulo p. The result is undefined if these conditions aren't satisfied
+//
+// This function will leak information about the value of p. This isn't intended
+// to be used in situations where the modulus isn't publicly known.
+func (z *Nat) ModSqrt(x *Nat, p *Modulus) *Nat {
+	if len(p.nat.limbs) == 0 {
+		panic("Can't take square root mod 0")
+	}
+	if p.nat.limbs[0]&0b11 == 3 {
+		return z.modSqrt3Mod4(x, p)
+	}
+	return z.tonelliShanks(x, p)
 }
