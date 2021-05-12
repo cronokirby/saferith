@@ -1081,6 +1081,7 @@ func (z *Nat) modSqrt3Mod4(x *Nat, p *Modulus) *Nat {
 
 // tonelliShanks sets z <- sqrt(x) mod p, for any prime modulus
 func (z *Nat) tonelliShanks(x *Nat, p *Modulus) *Nat {
+	// c.f. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-hash-to-curve-09#appendix-G.4
 	scratch := new(Nat)
 	x = new(Nat).SetNat(x)
 
