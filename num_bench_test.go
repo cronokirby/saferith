@@ -181,6 +181,7 @@ func _benchmarkExpBig(m *big.Int, b *testing.B) {
 	b.StopTimer()
 
 	x := new(big.Int).SetBytes(ones())
+	x.Mod(x, m)
 	y := new(big.Int).SetBytes(ones())
 
 	b.StartTimer()
