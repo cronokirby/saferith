@@ -776,31 +776,53 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 
-	// We create a new nat for this operation, so we only worry about aliasing y
-	var xsquared Nat
-	xsquared.Mod(x, m)
-
+	xModM := new(Nat).Mod(x, m)
 	yLimbs := y.unaliasedLimbs(z)
-	scratch := z.resizedLimbs(3 * size)
-	z.limbs = scratch[:size]
-	z.limbs[0] = 1
-	scratchA := scratch[size : 2*size]
-	scratchB := scratch[2*size:]
 
-	montgomeryRepresentation(xsquared.limbs, scratchA, m)
+	scratch := z.resizedLimbs(18 * size)
+	scratch1 := scratch[16*size : 17*size]
+	scratch2 := scratch[17*size:]
+
+	z.limbs = scratch[:size]
+	for i := 0; i < size; i++ {
+		z.limbs[i] = 0
+	}
+	z.limbs[0] = 1
+	montgomeryRepresentation(z.limbs, scratch1, m)
+
+	x1 := scratch[size : 2*size]
+	copy(x1, xModM.limbs)
+	montgomeryRepresentation(scratch[size:2*size], scratch1, m)
+	for i := 2; i < 16; i++ {
+		ximinus1 := scratch[(i-1)*size : i*size]
+		xi := scratch[i*size : (i+1)*size]
+		montgomeryMul(ximinus1, x1, xi, scratch1, m)
+	}
 
 	// LEAK: y's length
 	// OK: this should be public
-	for i := 0; i < len(yLimbs); i++ {
+	for i := len(yLimbs) - 1; i >= 0; i-- {
 		yi := yLimbs[i]
-		for j := 0; j < _W; j++ {
-			montgomeryMul(z.limbs, xsquared.limbs, scratchA, scratchB, m)
-			selectMultiply := yi & 1
-			ctCondCopy(selectMultiply, z.limbs, scratchA)
-			montgomeryMul(xsquared.limbs, xsquared.limbs, xsquared.limbs, scratchB, m)
-			yi >>= 1
+		for j := _W - 4; j >= 0; j -= 4 {
+			montgomeryMul(z.limbs, z.limbs, z.limbs, scratch1, m)
+			montgomeryMul(z.limbs, z.limbs, z.limbs, scratch1, m)
+			montgomeryMul(z.limbs, z.limbs, z.limbs, scratch1, m)
+			montgomeryMul(z.limbs, z.limbs, z.limbs, scratch1, m)
+
+			window := (yi >> j) & 0b1111
+			for i := 1; i < 16; i++ {
+				xToI := scratch[i*size : (i+1)*size]
+				ctCondCopy(ctEq(window, Word(i)), scratch1, xToI)
+			}
+			montgomeryMul(z.limbs, scratch1, scratch1, scratch2, m)
+			ctCondCopy(1^ctEq(window, 0), z.limbs, scratch1)
 		}
 	}
+	for i := 0; i < size; i++ {
+		scratch2[i] = 0
+	}
+	scratch2[0] = 1
+	montgomeryMul(z.limbs, scratch2, z.limbs, scratch1, m)
 	z.reduced = m
 	return z
 }
