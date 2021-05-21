@@ -180,13 +180,13 @@ func BenchmarkLargeModInverseBig(b *testing.B) {
 func _benchmarkExpBig(m *big.Int, b *testing.B) {
 	b.StopTimer()
 
-	var x big.Int
-	x.SetBytes(ones())
+	x := new(big.Int).SetBytes(ones())
+	y := new(big.Int).SetBytes(ones())
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.Exp(&x, &x, m)
+		z.Exp(x, y, m)
 		resultBig = z
 	}
 }
@@ -393,12 +393,13 @@ func _benchmarkExpNat(m *Modulus, b *testing.B) {
 	b.StopTimer()
 
 	x := new(Nat).SetBytes(ones())
+	y := new(Nat).SetBytes(ones())
 	x.Mod(x, m)
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.Exp(x, x, m)
+		z.Exp(x, y, m)
 		resultNat = z
 	}
 }
