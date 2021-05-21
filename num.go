@@ -254,6 +254,7 @@ func extendFront(buf []byte, size int) []byte {
 // the capacity of the number returned, and thus the resulting timings for operations
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
+	z.reduced = nil
 	// We pad the front so that we have a multiple of _S
 	// Padding the front is adding extra zeros to the BE representation
 	necessary := (len(buf) + _S - 1) &^ (_S - 1)
@@ -291,6 +292,7 @@ func (z *Nat) Bytes() []byte {
 //
 // This will have the exact same capacity as a 64 bit number
 func (z *Nat) SetUint64(x uint64) *Nat {
+	z.reduced = nil
 	// LEAK: Whether or not _W == 64
 	// OK: This is known in advance based on the architecture
 	if _W == 64 {
@@ -334,6 +336,7 @@ func (z *Nat) Uint64() uint64 {
 func (z *Nat) SetNat(x *Nat) *Nat {
 	z.limbs = z.resizedLimbs(len(x.limbs))
 	copy(z.limbs, x.limbs)
+	z.reduced = x.reduced
 	return z
 }
 
@@ -533,7 +536,7 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 		shiftAddIn(z.limbs[:size], z.limbs[size:], xLimbs[i], m)
 	}
 	z.limbs = z.limbs[:size]
-	//z.reduced = m
+	z.reduced = m
 	return z
 }
 
@@ -573,6 +576,7 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	// x and y are at most m - 1, so this isn't possible.
 	selectSub := ctEq(addCarry, subCarry)
 	ctCondCopy(selectSub, z.limbs[:size], subResult)
+	z.reduced = m
 	return z
 }
 
@@ -591,6 +595,7 @@ func (z *Nat) ModSub(x *Nat, y *Nat, m *Modulus) *Nat {
 	underflow := ctEq(subCarry, 1)
 	addVV(addResult, z.limbs, m.nat.limbs)
 	ctCondCopy(underflow, z.limbs, addResult)
+	z.reduced = m
 	return z
 }
 
@@ -613,6 +618,7 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 	// LEAK: the size of z (since we're making an extra access at the end)
 	// OK: this is public information, since cap is public
 	z.limbs[len(z.limbs)-1] &= mask
+	z.reduced = nil
 	return z
 }
 
@@ -635,6 +641,7 @@ func (z *Nat) Sub(x *Nat, y *Nat, cap uint) *Nat {
 	// LEAK: the size of z (since we're making an extra access at the end)
 	// OK: this is public information, since cap is public
 	z.limbs[len(z.limbs)-1] &= mask
+	z.reduced = nil
 	return z
 }
 
@@ -723,22 +730,15 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	var yModM Nat
 	yModM.Mod(y, m)
-	xLimbs := x.unaliasedLimbs(z)
-	// The idea is to position x after size zeros, making modular reduction
-	// also calculate the montgomery representation
-	z.limbs = z.resizedLimbs(size + len(xLimbs))
-	copy(z.limbs[size:], xLimbs)
-	for i := 0; i < size; i++ {
-		z.limbs[i] = 0
-	}
-	z.Mod(z, m)
+	z.Mod(x, m)
 	z.limbs = z.resizedLimbs(2 * size)
-
 	zLimbs := z.limbs[:size]
 	scratch := z.limbs[size:]
+	montgomeryRepresentation(zLimbs, scratch, m)
 	montgomeryMul(zLimbs, yModM.limbs, zLimbs, scratch, m)
 
 	z.limbs = zLimbs
+	z.reduced = m
 	return z
 }
 
@@ -766,6 +766,7 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 	zLimbs[len(zLimbs)-1] &= mask
 	// Now we can write over
 	z.limbs = zLimbs
+	z.reduced = nil
 	return z
 }
 
@@ -800,6 +801,7 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 			yi >>= 1
 		}
 	}
+	z.reduced = m
 	return z
 }
 
@@ -1073,6 +1075,7 @@ func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	ctCondCopy(1^inverseZero, newZ.limbs[:size], newZ.limbs[size:])
 
 	z.limbs = newZ.limbs[:size]
+	z.reduced = nil
 	return z
 }
 
@@ -1130,6 +1133,7 @@ func (z *Nat) tonelliShanks(x *Nat, p *Modulus) *Nat {
 		ctCondCopy(sel, t.limbs, scratch.limbs)
 		b.SetNat(t)
 	}
+	z.reduced = p
 	return z
 }
 
