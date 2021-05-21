@@ -393,12 +393,13 @@ func BenchmarkLargeModInverseEvenNat(b *testing.B) {
 
 func _benchmarkExpNat(m *Modulus, b *testing.B) {
 	b.StopTimer()
-	var x Nat
-	x.SetBytes(ones())
+	x := new(Nat).SetBytes(ones())
+	x.Mod(x, m)
+	x.reduced = m
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.Exp(&x, &x, m)
+		z.Exp(x, x, m)
 		resultNat = z
 	}
 }

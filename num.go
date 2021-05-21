@@ -120,7 +120,8 @@ func mulSubVVW(z, x []Word, y Word) (c Word) {
 type Nat struct {
 	// Two natural numbers are not allowed to share the same slice. This allows
 	// us to use pointer comparison to check that Nats don't alias eachother
-	limbs []Word
+	limbs   []Word
+	reduced *Modulus
 }
 
 // ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
@@ -499,6 +500,13 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 //
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
+	if x.reduced == m {
+		xLimbs := x.unaliasedLimbs(z)
+		z.limbs = z.resizedLimbs(len(m.nat.limbs))
+		z.reduced = m
+		copy(z.limbs, xLimbs)
+		return z
+	}
 	size := len(m.nat.limbs)
 	xLimbs := x.unaliasedLimbs(z)
 	z.limbs = z.resizedLimbs(2 * size)
@@ -525,6 +533,7 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 		shiftAddIn(z.limbs[:size], z.limbs[size:], xLimbs[i], m)
 	}
 	z.limbs = z.limbs[:size]
+	//z.reduced = m
 	return z
 }
 
