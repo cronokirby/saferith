@@ -18,13 +18,12 @@ func ones() []byte {
 	return bytes
 }
 
-// 2^3217 - 1 is a mersenne prime
-func largePrime() []byte {
-	bytes := make([]byte, 403)
-	for i := 1; i < len(bytes); i++ {
-		bytes[i] = 0xFF
+// a modulus of 2048 bits
+func modulus2048() []byte {
+	bytes := make([]byte, 256)
+	for i := 0; i < len(bytes); i++ {
+		bytes[i] = 0xFD
 	}
-	bytes[0] = 0x01
 	return bytes
 }
 
@@ -57,7 +56,7 @@ func BenchmarkModAddBig(b *testing.B) {
 
 func BenchmarkLargeModAddBig(b *testing.B) {
 	var m big.Int
-	m.SetBytes(largePrime())
+	m.SetBytes(modulus2048())
 	_benchmarkModAddBig(&m, b)
 }
 
@@ -90,7 +89,7 @@ func BenchmarkModMulBig(b *testing.B) {
 
 func BenchmarkLargeModMulBig(b *testing.B) {
 	var m big.Int
-	m.SetBytes(largePrime())
+	m.SetBytes(modulus2048())
 	_benchmarkModMulBig(&m, b)
 }
 
@@ -112,7 +111,7 @@ func BenchmarkModBig(b *testing.B) {
 
 func BenchmarkLargeModBig(b *testing.B) {
 	var m big.Int
-	m.SetBytes(largePrime())
+	m.SetBytes(modulus2048())
 	_benchmarkModBig(&m, b)
 }
 
@@ -134,7 +133,7 @@ func BenchmarkModInverseBig(b *testing.B) {
 
 func BenchmarkLargeModInverseBig(b *testing.B) {
 	var m big.Int
-	m.SetBytes(largePrime())
+	m.SetBytes(modulus2048())
 	_benchmarkModInverseBig(&m, b)
 }
 
@@ -156,7 +155,7 @@ func BenchmarkExpBig(b *testing.B) {
 
 func BenchmarkLargeExpBig(b *testing.B) {
 	var m big.Int
-	m.SetBytes(largePrime())
+	m.SetBytes(modulus2048())
 	_benchmarkExpBig(&m, b)
 }
 
@@ -196,7 +195,7 @@ func BenchmarkModAddNat(b *testing.B) {
 }
 
 func BenchmarkLargeModAddNat(b *testing.B) {
-	m := ModulusFromBytes(largePrime())
+	m := ModulusFromBytes(modulus2048())
 	_benchmarkModAddNat(m, b)
 }
 
@@ -226,7 +225,7 @@ func BenchmarkModMulNat(b *testing.B) {
 }
 
 func BenchmarkLargeModMulNat(b *testing.B) {
-	m := ModulusFromBytes(largePrime())
+	m := ModulusFromBytes(modulus2048())
 	_benchmarkModMulNat(m, b)
 }
 
@@ -246,7 +245,7 @@ func BenchmarkModNat(b *testing.B) {
 }
 
 func BenchmarkLargeModNat(b *testing.B) {
-	m := ModulusFromBytes(largePrime())
+	m := ModulusFromBytes(modulus2048())
 	_benchmarkModNat(m, b)
 }
 
@@ -266,7 +265,7 @@ func BenchmarkModInverseNat(b *testing.B) {
 }
 
 func BenchmarkLargeModInverseNat(b *testing.B) {
-	m := ModulusFromBytes(largePrime())
+	m := ModulusFromBytes(modulus2048())
 	_benchmarkModInverseNat(m, b)
 }
 
@@ -288,9 +287,9 @@ func BenchmarkModInverseEvenNat(b *testing.B) {
 
 func BenchmarkLargeModInverseEvenNat(b *testing.B) {
 	var one, m Nat
-	m.SetBytes(largePrime())
+	m.SetBytes(modulus2048())
 	one.SetUint64(1)
-	m.Add(&m, &one, 3224)
+	m.Add(&m, &one, 2048)
 	_benchmarkModInverseEvenNat(&m, b)
 }
 
@@ -310,7 +309,7 @@ func BenchmarkExpNat(b *testing.B) {
 }
 
 func BenchmarkLargeExpNat(b *testing.B) {
-	m := ModulusFromBytes(largePrime())
+	m := ModulusFromBytes(modulus2048())
 	_benchmarkExpNat(m, b)
 }
 
