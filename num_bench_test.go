@@ -44,14 +44,14 @@ func BenchmarkAddBig(b *testing.B) {
 func _benchmarkModAddBig(m *big.Int, b *testing.B) {
 	b.StopTimer()
 
-	var x big.Int
-	x.SetBytes(ones())
+	x := new(big.Int).SetBytes(ones())
+	x.Mod(x, m)
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.Add(&x, &x)
-		z.Mod(&x, m)
+		z.Add(x, x)
+		z.Mod(x, m)
 		resultBig = z
 	}
 }
@@ -89,14 +89,14 @@ func BenchmarkMulBig(b *testing.B) {
 func _benchmarkModMulBig(m *big.Int, b *testing.B) {
 	b.StopTimer()
 
-	var x big.Int
-	x.SetBytes(ones())
+	x := new(big.Int).SetBytes(ones())
+	x.Mod(x, m)
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.Mul(&x, &x)
-		z.Mod(&x, m)
+		z.Mul(x, x)
+		z.Mod(x, m)
 		resultBig = z
 	}
 }
@@ -150,13 +150,13 @@ func BenchmarkLargeModBig(b *testing.B) {
 func _benchmarkModInverseBig(m *big.Int, b *testing.B) {
 	b.StopTimer()
 
-	var x big.Int
-	x.SetBytes(ones())
+	x := new(big.Int).SetBytes(ones())
+	x.Mod(x, m)
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z big.Int
-		z.ModInverse(&x, m)
+		z.ModInverse(x, m)
 		resultBig = z
 	}
 }
