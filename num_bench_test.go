@@ -427,3 +427,16 @@ func BenchmarkSetBytesNat(b *testing.B) {
 		resultNat = z
 	}
 }
+
+func BenchmarkMontgomeryMul(b *testing.B) {
+	b.StopTimer()
+	x := new(Nat).SetBytes(ones())
+	y := new(Nat).SetBytes(ones())
+	scratch := new(Nat).SetBytes(ones())
+	out := new(Nat).SetBytes(ones())
+	m := ModulusFromBytes(modulus2048())
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		montgomeryMul(x.limbs, y.limbs, out.limbs, scratch.limbs, m)
+	}
+}
