@@ -8,7 +8,7 @@ import (
 var resultBig big.Int
 var resultNat Nat
 
-const _SIZE = 512
+const _SIZE = 256
 
 func ones() []byte {
 	bytes := make([]byte, _SIZE)
