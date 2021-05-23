@@ -1,5 +1,13 @@
+# 88cdcb68aab43bd81e292f13b513e2d8e81db481 (2021-05-23)
+
+Add benchmarks for sqrt.
+
+```
+```
+
 # 686f4cf65fc400b5023f57f038f2482553d5439c (2021-05-23)
 
+Use double sized modulus
 
 ```
 [safenum] → go test -bench=.

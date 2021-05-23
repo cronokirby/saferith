@@ -260,21 +260,6 @@ func BenchmarkModSqrt3Mod4Big(b *testing.B) {
 	}
 }
 
-func BenchmarkModSqrt1Mod4Big(b *testing.B) {
-	b.StopTimer()
-
-	p := new(big.Int).SetBytes(prime1Mod4())
-	// This is a large square modulo p
-	x := new(big.Int).Sub(p, new(big.Int).SetUint64(6))
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		var z big.Int
-		z.ModSqrt(x, p)
-		resultBig = z
-	}
-}
-
 func BenchmarkAddNat(b *testing.B) {
 	b.StopTimer()
 
@@ -516,7 +501,7 @@ func BenchmarkModSqrt3Mod4Nat(b *testing.B) {
 func BenchmarkModSqrt1Mod4Nat(b *testing.B) {
 	b.StopTimer()
 
-	p := new(Nat).SetBytes(prime3Mod4())
+	p := new(Nat).SetBytes(prime1Mod4())
 	// This is a large square modulo p
 	x := new(Nat).Sub(p, new(Nat).SetUint64(6), 256)
 	pMod := ModulusFromNat(*p)
