@@ -18,6 +18,14 @@ func ones() []byte {
 	return bytes
 }
 
+func doubleOnes() []byte {
+	bytes := make([]byte, 2*_SIZE)
+	for i := 0; i < 2*_SIZE; i++ {
+		bytes[i] = 1
+	}
+	return bytes
+}
+
 // a modulus of 2048 bits
 func modulus2048() []byte {
 	bytes := make([]byte, 256)
@@ -121,7 +129,7 @@ func _benchmarkModBig(m *big.Int, b *testing.B) {
 	b.StopTimer()
 
 	var x big.Int
-	x.SetBytes(ones())
+	x.SetBytes(doubleOnes())
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
@@ -308,7 +316,7 @@ func BenchmarkLargeModMulNat(b *testing.B) {
 func _benchmarkModNat(m *Modulus, b *testing.B) {
 	b.StopTimer()
 
-	x := new(Nat).SetBytes(ones())
+	x := new(Nat).SetBytes(doubleOnes())
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
