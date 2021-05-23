@@ -35,6 +35,22 @@ func modulus2048() []byte {
 	return bytes
 }
 
+// A 256 bit prime that's 3 mod 4
+func prime3Mod4() []byte {
+	bytes := make([]byte, 32)
+	bytes[0] = 4
+	bytes[31] = 0x4F
+	return bytes
+}
+
+// A 256 bit prime that's 1 mod 4
+func prime1Mod4() []byte {
+	bytes := make([]byte, 32)
+	bytes[0] = 4
+	bytes[31] = 0x99
+	return bytes
+}
+
 func BenchmarkAddBig(b *testing.B) {
 	b.StopTimer()
 
@@ -225,6 +241,36 @@ func BenchmarkSetBytesBig(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		var z big.Int
 		z.SetBytes(bytes)
+		resultBig = z
+	}
+}
+
+func BenchmarkModSqrt3Mod4Big(b *testing.B) {
+	b.StopTimer()
+
+	p := new(big.Int).SetBytes(prime3Mod4())
+	// This is a large square modulo p
+	x := new(big.Int).Sub(p, new(big.Int).SetUint64(5))
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		var z big.Int
+		z.ModSqrt(x, p)
+		resultBig = z
+	}
+}
+
+func BenchmarkModSqrt1Mod4Big(b *testing.B) {
+	b.StopTimer()
+
+	p := new(big.Int).SetBytes(prime1Mod4())
+	// This is a large square modulo p
+	x := new(big.Int).Sub(p, new(big.Int).SetUint64(6))
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		var z big.Int
+		z.ModSqrt(x, p)
 		resultBig = z
 	}
 }
@@ -448,5 +494,37 @@ func BenchmarkMontgomeryMul(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		montgomeryMul(x.limbs, y.limbs, out.limbs, scratch.limbs, m)
+	}
+}
+
+func BenchmarkModSqrt3Mod4Nat(b *testing.B) {
+	b.StopTimer()
+
+	p := new(Nat).SetBytes(prime3Mod4())
+	// This is a large square modulo p
+	x := new(Nat).Sub(p, new(Nat).SetUint64(5), 256)
+	pMod := ModulusFromNat(*p)
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		var z Nat
+		z.ModSqrt(x, pMod)
+		resultNat = z
+	}
+}
+
+func BenchmarkModSqrt1Mod4Nat(b *testing.B) {
+	b.StopTimer()
+
+	p := new(Nat).SetBytes(prime3Mod4())
+	// This is a large square modulo p
+	x := new(Nat).Sub(p, new(Nat).SetUint64(6), 256)
+	pMod := ModulusFromNat(*p)
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		var z Nat
+		z.ModSqrt(x, pMod)
+		resultNat = z
 	}
 }
