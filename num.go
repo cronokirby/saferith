@@ -7,35 +7,40 @@ import (
 
 // Constant Time Utilities
 
+// choice represents a constant-time boolean.
+//
+// The value of choice is always either 1 or 0.
+//
+// We use a separate type instead of bool, in order to be able to make decisions without leaking
+// which decision was made.
+type choice Word
+
 // ctEq compares x and y for equality, returning 1 if equal, and 0 otherwise
 //
 // This doesn't leak any information about either of them
-func ctEq(x, y Word) Word {
-	zero := uint64(x ^ y)
-	// The usual trick in Go's subtle library doesn't work for the case where
-	// x and y differ in every single bit. Instead, we do the same testing mechanism,
-	// but over each "half" of the number
-	//
-	// I'm not sure if this is optimal.
-	hiZero := ((zero >> 32) - 1) >> 63
-	loZero := ((zero & 0xFF_FF_FF_FF) - 1) >> 63
-	return Word(hiZero & loZero)
+func ctEq(x, y Word) choice {
+	// If x == y, then x ^ y should be all zero bits.
+	q := uint64(x ^ y)
+	// For any q != 0, either the MSB of q, or the MSB of -q is 1.
+	// We can thus or those together, and check the top bit. When q is zero,
+	// that means that x and y are equal, so we negate that top bit.
+	return 1 ^ choice((q|-q)>>63)
 }
 
 // ctGt checks x > y, returning 1 or 0
 //
 // This doesn't leak any information about either of them
-func ctGt(x, y Word) Word {
+func ctGt(x, y Word) choice {
 	z := y - x
-	return (z ^ ((x ^ y) & (x ^ z))) >> (_W - 1)
+	return choice((z ^ ((x ^ y) & (x ^ z))) >> (_W - 1))
 }
 
 // ctIfElse selects x if v = 1, and y otherwise
 //
 // This doesn't leak the value of any of its inputs
-func ctIfElse(v, x, y Word) Word {
+func ctIfElse(v choice, x, y Word) Word {
 	// mask should be all 1s if v is 1, otherwise all 0s
-	mask := -v
+	mask := -Word(v)
 	return y ^ (mask & (y ^ x))
 }
 
@@ -46,11 +51,9 @@ func ctIfElse(v, x, y Word) Word {
 // LEAK: the length of the slices
 //
 // Otherwise, which branch was taken isn't leaked
-func ctCondCopy(v Word, x, y []Word) {
-	// see ctMux
-	mask := -v
+func ctCondCopy(v choice, x, y []Word) {
 	for i := 0; i < len(x); i++ {
-		x[i] = x[i] ^ (mask & (x[i] ^ y[i]))
+		x[i] = ctIfElse(v, y[i], x[i])
 	}
 }
 
@@ -61,7 +64,7 @@ func ctCondCopy(v Word, x, y []Word) {
 // LEAK: the length of the slices
 //
 // Whether or not a swap happened isn't leaked
-func ctCondSwap(v Word, a, b []Word) {
+func ctCondSwap(v choice, a, b []Word) {
 	for i := 0; i < len(a) && i < len(b); i++ {
 		ai := a[i]
 		a[i] = ctIfElse(v, b[i], ai)
@@ -82,16 +85,16 @@ func div(hi, lo, d Word) (Word, Word) {
 	for i := _W - 1; i > 0; i-- {
 		j := _W - i
 		w := (hi << j) | (lo >> i)
-		sel := ctEq(w, d) | ctGt(w, d) | (hi >> i)
+		sel := ctEq(w, d) | ctGt(w, d) | choice(hi>>i)
 		hi2 := (w - d) >> j
 		lo2 := lo - (d << i)
 		hi = ctIfElse(sel, hi2, hi)
 		lo = ctIfElse(sel, lo2, lo)
-		quo |= sel
+		quo |= Word(sel)
 		quo <<= 1
 	}
-	sel := ctEq(lo, d) | ctGt(lo, d) | hi
-	quo |= sel
+	sel := ctEq(lo, d) | ctGt(lo, d) | choice(hi)
+	quo |= Word(sel)
 	rem := ctIfElse(sel, lo-d, lo)
 	return quo, rem
 }
@@ -828,8 +831,8 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 }
 
 // cmpEq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
-func cmpEq(x []Word, y []Word) Word {
-	res := Word(1)
+func cmpEq(x []Word, y []Word) choice {
+	res := choice(1)
 	for i := 0; i < len(x) && i < len(y); i++ {
 		res &= ctEq(x[i], y[i])
 	}
@@ -837,20 +840,18 @@ func cmpEq(x []Word, y []Word) Word {
 }
 
 // cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
-func cmpGeq(x []Word, y []Word) Word {
-	res := Word(1)
-	// LEAK: length of x, y
-	// OK: this should be public
+func cmpGeq(x []Word, y []Word) choice {
+	var c uint
 	for i := 0; i < len(x) && i < len(y); i++ {
-		res = ctIfElse(ctEq(x[i], y[i]), res, ctGt(x[i], y[i]))
+		_, c = bits.Sub(uint(x[i]), uint(y[i]), c)
 	}
-	return res
+	return 1 ^ choice(c)
 }
 
 // cmpZero checks if a slice is equal to zero, in constant time
 //
 // LEAK: the length of a
-func cmpZero(a []Word) Word {
+func cmpZero(a []Word) choice {
 	var v Word
 	for i := 0; i < len(a); i++ {
 		v |= a[i]
@@ -880,12 +881,12 @@ func (z *Nat) Cmp(x *Nat) int {
 	zLimbs := z.resizedLimbs(size)
 	xLimbs := x.resizedLimbs(size)
 
-	eq := Word(1)
-	geq := Word(0)
+	eq := choice(1)
+	geq := choice(0)
 	for i := 0; i < len(zLimbs) && i < len(xLimbs); i++ {
 		eq_at_i := ctEq(zLimbs[i], xLimbs[i])
 		eq &= eq_at_i
-		geq = ctIfElse(eq_at_i, geq, ctGt(zLimbs[i], xLimbs[i]))
+		geq = (eq_at_i & geq) | ((1 ^ eq_at_i) & ctGt(zLimbs[i], xLimbs[i]))
 	}
 	return subtle.ConstantTimeSelect(int(eq), 0, subtle.ConstantTimeSelect(int(geq), 1, -1))
 }
@@ -962,9 +963,9 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	// We run for 2 * k - 1 iterations, with k the number of bits of the modulus
 	for i := 0; i < 2*_W*size-1; i++ {
 		// a1 and u2 will hold the results to use if a is even
-		aOdd := shrVU(a1, a, 1) >> (_W - 1)
+		aOdd := choice(shrVU(a1, a, 1) >> (_W - 1))
 		aEven := 1 ^ aOdd
-		uOdd := shrVU(u2, u, 1) >> (_W - 1)
+		uOdd := choice(shrVU(u2, u, 1) >> (_W - 1))
 		addVV(u1, u2, halfm)
 		ctCondCopy(uOdd, u2, u1)
 
@@ -977,10 +978,10 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 		subVV(a, a, b)
 		shrVU(a, a, 1)
 		// u = (u - v) / 2 mod m
-		subCarry := subVV(u, u, v)
+		subCarry := choice(subVV(u, u, v))
 		addVV(u1, u, m.limbs)
 		ctCondCopy(subCarry, u, u1)
-		uOdd = shrVU(u, u, 1) >> (_W - 1)
+		uOdd = choice(shrVU(u, u, 1) >> (_W - 1))
 		addVV(u1, u, halfm)
 		ctCondCopy(uOdd, u, u1)
 
@@ -1048,7 +1049,7 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 			sel := ctEq(shiftCarry, subCarry)
 			ctCondCopy(sel, r, scratch)
 			if len(out) > 0 {
-				out[i] = ((out[i] << 1) | sel)
+				out[i] = ((out[i] << 1) | Word(sel))
 			}
 		}
 	}
