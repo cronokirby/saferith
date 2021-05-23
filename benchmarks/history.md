@@ -1,8 +1,87 @@
-# 88cdcb68aab43bd81e292f13b513e2d8e81db481 (2021-05-23)
+# 5e3e87ee146345850aed0449e79cb1df471f5e69 (2021-05-23)
 
 Add benchmarks for sqrt.
 
 ```
+[safenum] → go test -bench=.
+goos: linux
+goarch: amd64
+pkg: github.com/cronokirby/safenum
+cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
+BenchmarkAddBig-4                       10980842                97.37 ns/op
+BenchmarkModAddBig-4                    17397620                80.55 ns/op
+BenchmarkLargeModAddBig-4                6986739               146.9 ns/op
+BenchmarkMulBig-4                        1316322               949.8 ns/op
+BenchmarkModMulBig-4                    21368481                66.05 ns/op
+BenchmarkLargeModMulBig-4                1000000              1080 ns/op
+BenchmarkModBig-4                        1224583               978.6 ns/op
+BenchmarkLargeModBig-4                    454917              3228 ns/op
+BenchmarkModInverseBig-4                 3529366               305.1 ns/op
+BenchmarkLargeModInverseBig-4            1000000              1014 ns/op
+BenchmarkExpBig-4                          25830             44472 ns/op
+BenchmarkLargeExpBig-4                       223           5461545 ns/op
+BenchmarkSetBytesBig-4                  11066692               111.1 ns/op
+BenchmarkModSqrt3Mod4Big-4                 40464             30820 ns/op
+BenchmarkAddNat-4                       12164599                99.69 ns/op
+BenchmarkModAddNat-4                    12610224               117.7 ns/op
+BenchmarkLargeModAddNat-4                3075188               381.9 ns/op
+BenchmarkMulNat-4                         542385              2452 ns/op
+BenchmarkModMulNat-4                     2568790               460.5 ns/op
+BenchmarkLargeModMulNat-4                  44596             22808 ns/op
+BenchmarkModNat-4                          60856             19349 ns/op
+BenchmarkLargeModNat-4                     63253             17489 ns/op
+BenchmarkModInverseNat-4                  216262              5664 ns/op
+BenchmarkLargeModInverseNat-4                621           1905714 ns/op
+BenchmarkModInverseEvenNat-4                 606           1858476 ns/op
+BenchmarkLargeModInverseEvenNat-4            567           1986437 ns/op
+BenchmarkExpNat-4                          16140             73153 ns/op
+BenchmarkLargeExpNat-4                        86          13971093 ns/op
+BenchmarkSetBytesNat-4                   1256854               828.5 ns/op
+BenchmarkMontgomeryMul-4                  217508              5228 ns/op
+BenchmarkModSqrt3Mod4Nat-4                 26886             45715 ns/op
+BenchmarkModSqrt1Mod4Nat-4                  7867            159168 ns/op
+PASS
+ok      github.com/cronokirby/safenum   48.955s
+
+[safenum] → go test -bench=. -tags math_big_pure_go
+goos: linux
+goarch: amd64
+pkg: github.com/cronokirby/safenum
+cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
+BenchmarkAddBig-4                        9965032               123.2 ns/op
+BenchmarkModAddBig-4                    17541772                62.54 ns/op
+BenchmarkLargeModAddBig-4                8280865               146.7 ns/op
+BenchmarkMulBig-4                         872971              1385 ns/op
+BenchmarkModMulBig-4                    19919542                61.94 ns/op
+BenchmarkLargeModMulBig-4                 828572              1417 ns/op
+BenchmarkModBig-4                        1298089               920.7 ns/op
+BenchmarkLargeModBig-4                    181110              6686 ns/op
+BenchmarkModInverseBig-4                 5098978               233.9 ns/op
+BenchmarkLargeModInverseBig-4             997564              1136 ns/op
+BenchmarkExpBig-4                          26109             45708 ns/op
+BenchmarkLargeExpBig-4                       122           9717229 ns/op
+BenchmarkSetBytesBig-4                   9906030               123.0 ns/op
+BenchmarkModSqrt3Mod4Big-4                 31356             39154 ns/op
+BenchmarkAddNat-4                        9561010               117.0 ns/op
+BenchmarkModAddNat-4                    12873328                94.94 ns/op
+BenchmarkLargeModAddNat-4                2430703               441.0 ns/op
+BenchmarkMulNat-4                         290158              4321 ns/op
+BenchmarkModMulNat-4                     2719801               453.4 ns/op
+BenchmarkLargeModMulNat-4                  50503             24636 ns/op
+BenchmarkModNat-4                          56659             20209 ns/op
+BenchmarkLargeModNat-4                     64297             18912 ns/op
+BenchmarkModInverseNat-4                  211422              5629 ns/op
+BenchmarkLargeModInverseNat-4                422           2781247 ns/op
+BenchmarkModInverseEvenNat-4                 427           2786959 ns/op
+BenchmarkLargeModInverseEvenNat-4            386           2982514 ns/op
+BenchmarkExpNat-4                          17989             67104 ns/op
+BenchmarkLargeExpNat-4                        82          14357059 ns/op
+BenchmarkSetBytesNat-4                   1631575               767.5 ns/op
+BenchmarkMontgomeryMul-4                  221646              5304 ns/op
+BenchmarkModSqrt3Mod4Nat-4                 26612             44991 ns/op
+BenchmarkModSqrt1Mod4Nat-4                  7627            151005 ns/op
+PASS
+ok      github.com/cronokirby/safenum   48.457s
 ```
 
 # 686f4cf65fc400b5023f57f038f2482553d5439c (2021-05-23)
