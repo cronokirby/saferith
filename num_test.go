@@ -2,6 +2,7 @@ package safenum
 
 import (
 	"bytes"
+	"math/big"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -22,6 +23,19 @@ func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes[len(bytes)-1] |= 1
 	n := ModulusFromBytes(bytes)
 	return reflect.ValueOf(*n)
+}
+
+func testBigConversion(x Nat) bool {
+	xBig := x.Big()
+	xNatAgain := new(Nat).SetBig(xBig, x.AnnouncedLen())
+	return x.Cmp(xNatAgain) == 0
+}
+
+func TestBigConversion(t *testing.T) {
+	err := quick.Check(testBigConversion, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func testAddZeroIdentity(n Nat) bool {
@@ -658,5 +672,20 @@ func TestModSqrtExamples(t *testing.T) {
 	z := new(Nat).SetUint64(11)
 	if x.Cmp(z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
+	}
+}
+
+func TestBigExamples(t *testing.T) {
+	theBytes := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}
+	x := new(Nat).SetBytes(theBytes)
+	expected := new(big.Int).SetBytes(theBytes)
+	actual := x.Big()
+	if expected.Cmp(actual) != 0 {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+	expectedNat := x
+	actualNat := new(Nat).SetBig(expected, uint(len(theBytes)*8))
+	if expectedNat.Cmp(actualNat) != 0 {
+		t.Errorf("%+v != %+v", expectedNat, actualNat)
 	}
 }

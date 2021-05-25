@@ -2,6 +2,7 @@ package safenum
 
 import (
 	"crypto/subtle"
+	"math/big"
 	"math/bits"
 )
 
@@ -289,6 +290,34 @@ func (z *Nat) Bytes() []byte {
 	length := len(z.limbs) * _S
 	out := make([]byte, length)
 	return z.FillBytes(out)
+}
+
+// Big converts a Nat into a big.Int
+//
+// This will leak information about the true size of z, so caution
+// should be exercised when using this method with sensitive values.
+func (z *Nat) Big() *big.Int {
+	res := new(big.Int)
+	// Unfortunate that there's no good way to handle this
+	bigLimbs := make([]big.Word, len(z.limbs))
+	for i := 0; i < len(bigLimbs) && i < len(z.limbs); i++ {
+		bigLimbs[i] = big.Word(z.limbs[i])
+	}
+	res.SetBits(bigLimbs)
+	return res
+}
+
+// SetBig modifies z to contain the value of x
+//
+// The size parameter is used to pad or truncate z to a certain number of bits.
+func (z *Nat) SetBig(x *big.Int, size uint) *Nat {
+	limbCount := int((size + _W - 1) / _W)
+	z.limbs = z.resizedLimbs(limbCount)
+	bigLimbs := x.Bits()
+	for i := 0; i < len(z.limbs) && i < len(bigLimbs); i++ {
+		z.limbs[i] = Word(bigLimbs[i])
+	}
+	return z
 }
 
 // SetUint64 sets z to x, and returns z
