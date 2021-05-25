@@ -443,7 +443,7 @@ func ModulusFromBytes(bytes []byte) *Modulus {
 // This will leak the true size of this natural number. Because of this,
 // the true size of the number should not be sensitive information. This is
 // a stronger requirement than we usually have for Nat.
-func ModulusFromNat(nat Nat) *Modulus {
+func ModulusFromNat(nat *Nat) *Modulus {
 	var m Modulus
 	// We make a copy here, to avoid any aliasing between buffers
 	size := trueSize(nat.limbs)

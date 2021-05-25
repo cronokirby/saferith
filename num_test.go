@@ -280,8 +280,7 @@ func testModInverseMinusOne(a Nat) bool {
 	}
 	var one Nat
 	one.SetUint64(1)
-	var z Nat
-	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
+	z := new(Nat).Add(&a, &one, a.AnnouncedLen()+1)
 	m := ModulusFromNat(z)
 	z.ModInverse(&a, m)
 	return z.Cmp(&a) == 0
