@@ -378,13 +378,15 @@ func (z *Nat) SetNat(x *Nat) *Nat {
 // is assumed to be public. Operations are allowed to leak this size, and creating
 // a modulus will remove unnecessary zeros.
 //
-// Operations on Moduli assume that the Modulus is odd, except for Modular reduction.
+// Operations on a Modulus may leak whether or not a Modulus is even.
 type Modulus struct {
 	nat Nat
 	// the number of leading zero bits
 	leading uint
 	// The inverse of the least significant limb, modulo W
 	m0inv Word
+	// If true, then this modulus is even
+	even bool
 }
 
 // invertModW calculates x^-1 mod _W
@@ -408,8 +410,13 @@ func (m *Modulus) precomputeValues() {
 		panic("Modulus is empty")
 	}
 	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
-	m.m0inv = invertModW(m.nat.limbs[0])
-	m.m0inv = -m.m0inv
+	// I think checking the bit directly might leak more data than we'd like
+	m.even = ctEq(m.nat.limbs[0]&1, 0) == 1
+	// There's no point calculating this if m isn't even, and we can leak evenness
+	if !m.even {
+		m.m0inv = invertModW(m.nat.limbs[0])
+		m.m0inv = -m.m0inv
+	}
 }
 
 // SetUint64 sets the modulus according to an integer
