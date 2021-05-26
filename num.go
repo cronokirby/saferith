@@ -1060,12 +1060,10 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	z.Mod(x, m)
 	if m.even {
-		z.modInverseEven(x, m)
+		return z.modInverseEven(x, m)
 	} else {
-		z.modInverse(z, &m.nat)
+		return z.modInverse(z, &m.nat)
 	}
-	z.reduced = m
-	return z
 }
 
 // divDouble divides x by d, outputtting the quotient in out, and a remainder
