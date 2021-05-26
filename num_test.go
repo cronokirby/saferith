@@ -305,8 +305,8 @@ func testModInverseEvenMinusOne(a Nat) bool {
 	one.SetUint64(1)
 	var z Nat
 	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
-	z.ModInverseEven(&a, &z)
-	return z.Cmp(&a) == 0
+	z2 := new(Nat).modInverseEven(&a, ModulusFromNat(&z))
+	return z2.Cmp(&a) == 0
 }
 
 func TestModInverseEvenMinusOne(t *testing.T) {
@@ -327,7 +327,8 @@ func testModInverseEvenOne(a Nat) bool {
 	var one Nat
 	one.SetUint64(1)
 	var z Nat
-	z.ModInverseEven(&one, &a)
+	m := ModulusFromNat(&a)
+	z.ModInverse(&one, m)
 	return z.Cmp(&one) == 0
 }
 
@@ -607,36 +608,36 @@ func TestBytesExamples(t *testing.T) {
 }
 
 func TestModInverseEvenExamples(t *testing.T) {
-	var z, x, m Nat
+	var z, x Nat
 	x.SetUint64(9)
-	m.SetUint64(10)
-	x.ModInverseEven(&x, &m)
+	m := ModulusFromUint64(10)
+	x.ModInverse(&x, m)
 	z.SetUint64(9)
 	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(1)
-	m.SetUint64(10)
-	x.ModInverseEven(&x, &m)
+	m = ModulusFromUint64(10)
+	x.ModInverse(&x, m)
 	z.SetUint64(1)
 	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(19)
-	x.ModInverseEven(&x, &m)
+	x.ModInverse(&x, m)
 	z.SetUint64(9)
 	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(99)
-	x.ModInverseEven(&x, &m)
+	x.ModInverse(&x, m)
 	z.SetUint64(9)
 	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(999)
-	m.SetUint64(1000)
-	x.ModInverseEven(&x, &m)
+	m = ModulusFromUint64(1000)
+	x.ModInverse(&x, m)
 	z.SetUint64(999)
 	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
@@ -645,8 +646,8 @@ func TestModInverseEvenExamples(t *testing.T) {
 	// in which case when we do m^-1 mod x, we need to first calculate the remainder
 	// of m.
 	x.SetUint64(3)
-	m.SetBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0})
-	x.ModInverseEven(&x, &m)
+	m = ModulusFromBytes([]byte{1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0})
+	x.ModInverse(&x, m)
 	z.SetBytes([]byte{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAB})
 	if x.Cmp(&z) != 0 {
 		t.Errorf("%+v != %+v", x, z)

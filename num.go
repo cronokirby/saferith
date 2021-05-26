@@ -1037,7 +1037,11 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 // The capacity of the resulting number matches the capacity of the modulus
 func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	z.Mod(x, m)
-	return z.modInverse(z, &m.nat)
+	if m.even {
+		return z.modInverseEven(x, m)
+	} else {
+		return z.modInverse(z, &m.nat)
+	}
 }
 
 // divDouble divides x by d, outputtting the quotient in out, and a remainder
@@ -1100,7 +1104,7 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 // than the standard routine though.
 //
 // This function assumes that x has an inverse modulo m, naturally
-func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
+func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	// Idea:
 	//
 	// You want to find Z such that ZX = 1 mod M. The problem is
@@ -1111,19 +1115,19 @@ func (z *Nat) ModInverseEven(x *Nat, m *Nat) *Nat {
 	// us with an inverse for X.
 	//
 	// To find K, we can calculate (AM - 1) / X, and then subtract this from M, to get our inverse.
-	size := len(m.limbs)
+	size := len(m.nat.limbs)
 	// We want to invert m modulo x, so we first calculate the reduced version, before inverting
 	var newZ Nat
-	newZ.limbs = divDouble(m.limbs, x.limbs, []Word{})
+	newZ.limbs = divDouble(m.nat.limbs, x.limbs, []Word{})
 	newZ.modInverse(&newZ, x)
 	inverseZero := cmpZero(newZ.limbs)
-	newZ.Mul(&newZ, m, uint(2*size*_W))
+	newZ.Mul(&newZ, &m.nat, uint(2*size*_W))
 	newZ.limbs = newZ.resizedLimbs(2 * size)
 	subVW(newZ.limbs, newZ.limbs, 1)
 	divDouble(newZ.limbs, x.limbs, newZ.limbs)
 	// The result fits on a single half of newZ, but we need to subtract it from m.
 	// We can use the other half of newZ, and then copy it back over if we need to keep it
-	subVV(newZ.limbs[size:], m.limbs, newZ.limbs[:size])
+	subVV(newZ.limbs[size:], m.nat.limbs, newZ.limbs[:size])
 	// If the inverse was zero, then x was 1, and so we should return 1.
 	// We go ahead and prepare this result, but expect to copy over the subtraction
 	// we just calculated soon over, in the usual case.

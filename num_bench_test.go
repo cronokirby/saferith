@@ -399,7 +399,7 @@ func BenchmarkLargeModInverseNat(b *testing.B) {
 	_benchmarkModInverseNat(m, b)
 }
 
-func _benchmarkModInverseEvenNat(m *Nat, b *testing.B) {
+func _benchmarkModInverseEvenNat(m *Modulus, b *testing.B) {
 	b.StopTimer()
 
 	var x Nat
@@ -408,16 +408,15 @@ func _benchmarkModInverseEvenNat(m *Nat, b *testing.B) {
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		var z Nat
-		z.ModInverseEven(&x, m)
+		z.ModInverse(&x, m)
 		resultNat = z
 	}
 }
 
 func BenchmarkModInverseEvenNat(b *testing.B) {
 	b.StopTimer()
-	var m Nat
-	m.SetUint64(14)
-	_benchmarkModInverseEvenNat(&m, b)
+	m := ModulusFromUint64(14)
+	_benchmarkModInverseEvenNat(m, b)
 }
 
 func BenchmarkLargeModInverseEvenNat(b *testing.B) {
@@ -426,7 +425,7 @@ func BenchmarkLargeModInverseEvenNat(b *testing.B) {
 	m.SetBytes(modulus2048())
 	one.SetUint64(1)
 	m.Add(&m, &one, 2048)
-	_benchmarkModInverseEvenNat(&m, b)
+	_benchmarkModInverseEvenNat(ModulusFromNat(&m), b)
 }
 
 func _benchmarkExpNat(m *Modulus, b *testing.B) {
