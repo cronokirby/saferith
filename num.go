@@ -873,6 +873,7 @@ func (z *Nat) expEven(x *Nat, y *Nat, m *Modulus) *Nat {
 			ctCondCopy(sel, z.limbs, scratch.limbs)
 		}
 	}
+	z.reduced = m
 	return z
 }
 
@@ -1059,10 +1060,12 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	z.Mod(x, m)
 	if m.even {
-		return z.modInverseEven(x, m)
+		z.modInverseEven(x, m)
 	} else {
-		return z.modInverse(z, &m.nat)
+		z.modInverse(z, &m.nat)
 	}
+	z.reduced = m
+	return z
 }
 
 // divDouble divides x by d, outputtting the quotient in out, and a remainder
