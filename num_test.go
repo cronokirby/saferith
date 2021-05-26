@@ -20,7 +20,8 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
 	bytes := make([]byte, 1)
 	r.Read(bytes)
-	bytes[len(bytes)-1] |= 1
+	// Ensure that our number isn't 0, but being even is ok
+	bytes[len(bytes)-1] |= 0b10
 	n := ModulusFromBytes(bytes)
 	return reflect.ValueOf(*n)
 }

@@ -825,10 +825,7 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 	return z
 }
 
-// Exp calculates z <- x^y mod m
-//
-// The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
+func (z *Nat) expOdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 
 	xModM := new(Nat).Mod(x, m)
@@ -880,6 +877,38 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 	montgomeryMul(z.limbs, scratch2, z.limbs, scratch1, m)
 	z.reduced = m
 	return z
+}
+
+func (z *Nat) expEven(x *Nat, y *Nat, m *Modulus) *Nat {
+	xModM := new(Nat).Mod(x, m)
+	yLimbs := y.unaliasedLimbs(z)
+
+	scratch := new(Nat)
+
+	// LEAK: y's length
+	// OK: this should be public
+	for i := len(yLimbs) - 1; i >= 0; i-- {
+		yi := yLimbs[i]
+		for j := _W; j >= 0; j-- {
+			z.modMulEven(z, z, m)
+
+			sel := choice((yi >> j) & 1)
+			scratch.modMulEven(z, xModM, m)
+			ctCondCopy(sel, z.limbs, scratch.limbs)
+		}
+	}
+	return z
+}
+
+// Exp calculates z <- x^y mod m
+//
+// The capacity of the resulting number matches the capacity of the modulus
+func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
+	if m.even {
+		return z.expEven(x, y, m)
+	} else {
+		return z.expOdd(x, y, m)
+	}
 }
 
 // cmpEq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
