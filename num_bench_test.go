@@ -35,6 +35,15 @@ func modulus2048() []byte {
 	return bytes
 }
 
+// an even modulus of 2048 bits
+func modulus2048Even() []byte {
+	bytes := make([]byte, 256)
+	for i := 0; i < len(bytes); i++ {
+		bytes[i] = 0xFE
+	}
+	return bytes
+}
+
 // A 256 bit prime that's 3 mod 4
 func prime3Mod4() []byte {
 	bytes := make([]byte, 32)
@@ -341,6 +350,13 @@ func BenchmarkLargeModMulNat(b *testing.B) {
 	b.StopTimer()
 
 	m := ModulusFromBytes(modulus2048())
+	_benchmarkModMulNat(m, b)
+}
+
+func BenchmarkLargeModMulNatEven(b *testing.B) {
+	b.StopTimer()
+
+	m := ModulusFromBytes(modulus2048Even())
 	_benchmarkModMulNat(m, b)
 }
 
