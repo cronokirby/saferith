@@ -471,6 +471,12 @@ func BenchmarkLargeExpNat(b *testing.B) {
 	_benchmarkExpNat(m, b)
 }
 
+func BenchmarkLargeExpNatEven(b *testing.B) {
+	b.StopTimer()
+	m := ModulusFromBytes(modulus2048Even())
+	_benchmarkExpNat(m, b)
+}
+
 func BenchmarkSetBytesNat(b *testing.B) {
 	b.StopTimer()
 
