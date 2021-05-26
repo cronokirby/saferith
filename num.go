@@ -762,39 +762,15 @@ func montgomeryMul(x []Word, y []Word, out []Word, scratch []Word, m *Modulus) {
 	ctCondCopy(1^ctEq(dh, c), out, scratch)
 }
 
-func (z *Nat) modMulOdd(x *Nat, y *Nat, m *Modulus) *Nat {
-	size := len(m.nat.limbs)
-	var yModM Nat
-	yModM.Mod(y, m)
-	z.Mod(x, m)
-	z.limbs = z.resizedLimbs(2 * size)
-	zLimbs := z.limbs[:size]
-	scratch := z.limbs[size:]
-	montgomeryRepresentation(zLimbs, scratch, m)
-	montgomeryMul(zLimbs, yModM.limbs, zLimbs, scratch, m)
-
-	z.limbs = zLimbs
-	z.reduced = m
-	return z
-}
-
-func (z *Nat) modMulEven(x *Nat, y *Nat, m *Modulus) *Nat {
+// ModMul calculates z <- x * y mod m
+//
+// The capacity of the resulting number matches the capacity of the modulus
+func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 	xModM := new(Nat).Mod(x, m)
 	yModM := new(Nat).Mod(y, m)
 	bitLen := m.BitLen()
 	z.Mul(xModM, yModM, 2*bitLen)
 	return z.Mod(z, m)
-}
-
-// ModMul calculates z <- x * y mod m
-//
-// The capacity of the resulting number matches the capacity of the modulus
-func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
-	if m.even {
-		return z.modMulEven(x, y, m)
-	} else {
-		return z.modMulOdd(x, y, m)
-	}
 }
 
 // Mul calculates z <- x * y, modulo 2^cap
@@ -890,10 +866,10 @@ func (z *Nat) expEven(x *Nat, y *Nat, m *Modulus) *Nat {
 	for i := len(yLimbs) - 1; i >= 0; i-- {
 		yi := yLimbs[i]
 		for j := _W; j >= 0; j-- {
-			z.modMulEven(z, z, m)
+			z.ModMul(z, z, m)
 
 			sel := choice((yi >> j) & 1)
-			scratch.modMulEven(z, xModM, m)
+			scratch.ModMul(z, xModM, m)
 			ctCondCopy(sel, z.limbs, scratch.limbs)
 		}
 	}
