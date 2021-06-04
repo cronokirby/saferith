@@ -134,18 +134,11 @@ done:
 	SUB	$4, counter;
 
 // func addVW(z, x []Word, y Word) (c Word)
-// The 'large' branch handles large 'z'. It checks the carry flag on every iteration
-// and switches to copy if we are done with carries. The copying is skipped as well
-// if 'x' and 'z' happen to share the same underlying storage.
-// The overhead of the checking and branching is visible when 'z' are small (~5%),
-// so set a threshold of 32, and remain the small-sized part entirely untouched.
 TEXT ·addVW(SB),NOSPLIT,$0
 	MOVD	z+0(FP), R3
 	MOVD	z_len+8(FP), R0
 	MOVD	x+24(FP), R1
 	MOVD	y+48(FP), R2
-	CMP	$32, R0
-	BGE	large		// large-sized 'z' and 'x'
 	CBZ	R0, len0	// the length of z is 0
 	MOVD.P	8(R1), R4
 	ADDS	R2, R4		// z[0] = x[0] + y, set carry
@@ -173,13 +166,6 @@ len0:
 	MOVD	R2, c+56(FP)
 done:
 	RET
-large:
-	AND	$0x3, R0, R10
-	AND	$~0x3, R0
-	// unrolling for the first 1~4 elements to avoid saving the carry
-	// flag in each step, adjust $R0 if we unrolled 4 elements
-	vwPreIter(ADDS, ADCS, R10, add4)
-	SUB	$4, R0
 add4:
 	BCC	copy
 	vwOneIter(ADCS, R0, len1)
@@ -193,18 +179,11 @@ copy_4:				// no carry flag, copy the rest
 	B	copy_4
 
 // func subVW(z, x []Word, y Word) (c Word)
-// The 'large' branch handles large 'z'. It checks the carry flag on every iteration
-// and switches to copy if we are done with carries. The copying is skipped as well
-// if 'x' and 'z' happen to share the same underlying storage.
-// The overhead of the checking and branching is visible when 'z' are small (~5%),
-// so set a threshold of 32, and remain the small-sized part entirely untouched.
 TEXT ·subVW(SB),NOSPLIT,$0
 	MOVD	z+0(FP), R3
 	MOVD	z_len+8(FP), R0
 	MOVD	x+24(FP), R1
 	MOVD	y+48(FP), R2
-	CMP	$32, R0
-	BGE	large		// large-sized 'z' and 'x'
 	CBZ	R0, len0	// the length of z is 0
 	MOVD.P	8(R1), R4
 	SUBS	R2, R4		// z[0] = x[0] - y, set carry
@@ -232,13 +211,6 @@ len0:
 	MOVD	R2, c+56(FP)
 done:
 	RET
-large:
-	AND	$0x3, R0, R10
-	AND	$~0x3, R0
-	// unrolling for the first 1~4 elements to avoid saving the carry
-	// flag in each step, adjust $R0 if we unrolled 4 elements
-	vwPreIter(SUBS, SBCS, R10, sub4)
-	SUB	$4, R0
 sub4:
 	BCS	copy
 	vwOneIter(SBCS, R0, len1)
