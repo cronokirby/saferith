@@ -191,8 +191,7 @@ func (z *Nat) AnnouncedLen() uint {
 
 // leadingZeros calculates the number of leading zero bits in x.
 //
-// This should be less leaky than bits.LeadingZeros, leaking only the number
-// of zero bits, but not other information about the value of x.
+// This shouldn't leak any information about the value of x.
 func leadingZeros(x Word) uint {
 	stillZero := choice(1)
 	leadingZeroBytes := Word(0)
@@ -211,7 +210,7 @@ func leadingZeros(x Word) uint {
 			leadingZeroBits += Word(stillZero)
 		}
 	}
-	return uint(leadingZeroBytes + leadingZeroBits)
+	return uint(8*leadingZeroBytes + leadingZeroBits)
 }
 
 // TrueLen calculates the exact number of bits needed to represent z
