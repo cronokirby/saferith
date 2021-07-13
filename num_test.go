@@ -729,3 +729,34 @@ func TestDivExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", x, actualNat)
 	}
 }
+
+func TestCoprimeExamples(t *testing.T) {
+	x := new(Nat).SetUint64(5 * 7 * 13)
+	y := new(Nat).SetUint64(3 * 7 * 11)
+	expected := 0
+	actual := x.Coprime(y)
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+	x.SetUint64(2)
+	y.SetUint64(13)
+	expected = 1
+	actual = x.Coprime(y)
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+	x.SetUint64(13)
+	y.SetUint64(2)
+	expected = 1
+	actual = x.Coprime(y)
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+	x.SetUint64(2 * 13 * 11)
+	y.SetUint64(2 * 5 * 7)
+	expected = 0
+	actual = x.Coprime(y)
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+}
