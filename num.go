@@ -1121,7 +1121,32 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 		ctCondCopy(aEven, u, u2)
 	}
 
-	return a, v
+	return b, v
+}
+
+// Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
+func (x *Nat) Coprime(y *Nat) int {
+	size := len(x.limbs)
+	if len(y.limbs) > size {
+		size = len(y.limbs)
+	}
+	a := x.resizedLimbs(size)
+	b := y.resizedLimbs(size)
+
+	// Our gcd(a, b) routine requires b to be odd, and will return garbage otherwise.
+	aOdd := choice(a[0] & 1)
+	ctCondSwap(aOdd, a, b)
+
+	scratch := new(Nat)
+	d, _ := scratch.eGCD(a, b)
+
+	scratch.SetUint64(1)
+	one := scratch.resizedLimbs(len(d))
+
+	bOdd := choice(b[0] & 1)
+	// If at least one of a or b is odd, then our GCD calculation will have been correct,
+	// otherwise, both are even, so we want to return false anyways.
+	return int((aOdd | bOdd) & cmpEq(d, one))
 }
 
 // modInverse calculates the inverse of a reduced x modulo m
