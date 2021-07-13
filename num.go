@@ -292,6 +292,21 @@ func (z *Nat) Bytes() []byte {
 	return z.FillBytes(out)
 }
 
+// Byte will access the ith byte in this nat, with 0 being the least significant byte.
+//
+// This will leak the value of i, and panic if i is < 0.
+func (z *Nat) Byte(i int) byte {
+	if i < 0 {
+		panic("negative byte")
+	}
+	limbCount := len(z.limbs)
+	bytesPerLimb := _W / 8
+	if i >= bytesPerLimb*limbCount {
+		return 0
+	}
+	return byte(z.limbs[i/bytesPerLimb] >> (8 * (i % bytesPerLimb)))
+}
+
 // Big converts a Nat into a big.Int
 //
 // This will leak information about the true size of z, so caution
