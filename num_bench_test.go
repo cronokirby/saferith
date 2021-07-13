@@ -534,3 +534,30 @@ func BenchmarkModSqrt1Mod4Nat(b *testing.B) {
 		resultNat = z
 	}
 }
+
+func _benchmarkDivNat(m *Modulus, b *testing.B) {
+	b.StopTimer()
+
+	x := new(Nat).SetBytes(doubleOnes())
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		var z Nat
+		z.Div(x, m, m.BitLen())
+		resultNat = z
+	}
+}
+
+func BenchmarkDivNat(b *testing.B) {
+	b.StopTimer()
+
+	m := ModulusFromUint64(13)
+	_benchmarkDivNat(m, b)
+}
+
+func BenchmarkLargeDivNat(b *testing.B) {
+	b.StopTimer()
+
+	m := ModulusFromBytes(modulus2048())
+	_benchmarkDivNat(m, b)
+}
