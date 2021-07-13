@@ -482,7 +482,7 @@ func (m *Modulus) Cmp(n *Modulus) int {
 // shiftAddIn calculates z = z << _W + x mod m
 //
 // The length of z and scratch should be len(m) + 1
-func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
+func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	// Making tests on the exact bit length of m is ok,
 	// since that's part of the contract for moduli
 	size := len(m.nat.limbs)
@@ -490,10 +490,10 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 		return
 	}
 	if size == 1 {
-		// In this case, z:x % m is exactly what we need to calculate
-		_, r := div(z[0], x, m.nat.limbs[0])
+		// In this case, z:x (/, %) m is exactly what we need to calculate
+		q, r := div(z[0], x, m.nat.limbs[0])
 		z[0] = r
-		return
+		return q
 	}
 
 	// The idea is as follows:
@@ -519,7 +519,7 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 	// It can be shown that this happens when a1 == b0. In this case, we want
 	// to use the maximum value for q
 	rawQ, _ := div(a1, a0, b0)
-	q := ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
+	q = ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
 
 	// This estimate is off by +- 1, so we subtract q * m, and then either add
 	// or subtract m, based on the result.
@@ -534,8 +534,11 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) {
 	over := (1 ^ under) & (stillBigger | (1 ^ ctEq(c, hi)))
 	addVV(scratch, z, m.nat.limbs)
 	ctCondCopy(under, z, scratch)
+	q = ctIfElse(under, q-1, q)
 	subVV(scratch, z, m.nat.limbs)
 	ctCondCopy(over, z, scratch)
+	q = ctIfElse(over, q+1, q)
+	return
 }
 
 // Mod calculates z <- x mod m
@@ -576,6 +579,43 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	}
 	z.limbs = z.limbs[:size]
 	z.reduced = m
+	return z
+}
+
+// Div calculates z <- x / m, with m a Modulus.
+//
+// This might seem like an odd signature, but by using a Modulus,
+// we can achieve the same speed as the Mod method. This wouldn't be the case for
+// an arbitrary Nat.
+//
+// cap determines the number of bits to keep in the result.
+func (z *Nat) Div(x *Nat, m *Modulus, cap uint) *Nat {
+	size := len(m.nat.limbs)
+
+	remainder := make([]Word, size)
+	scratch := make([]Word, size)
+	quotientBE := make([]Word, 0, len(x.limbs)-size)
+
+	for i := len(x.limbs) - 1; i >= 0; i-- {
+		q := shiftAddIn(remainder, scratch, x.limbs[i], m)
+		quotientBE = append(quotientBE, q)
+	}
+
+	limbCount := int((cap + _W - 1) / _W)
+
+	z.limbs = z.resizedLimbs(limbCount)
+	for i := 0; i < len(z.limbs); i++ {
+		z.limbs[i] = quotientBE[len(quotientBE)-i-1]
+	}
+	// Now, we need to truncate the last limb
+	extraBits := uint(_W*limbCount) - cap
+	bitsToKeep := _W - extraBits
+	mask := ^(^Word(0) << bitsToKeep)
+	// LEAK: the size of z (since we're making an extra access at the end)
+	// OK: this is public information, since cap is public
+	z.limbs[len(z.limbs)-1] &= mask
+
+	z.reduced = nil
 	return z
 }
 

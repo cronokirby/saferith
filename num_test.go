@@ -690,3 +690,21 @@ func TestBigExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expectedNat, actualNat)
 	}
 }
+
+func TestDivExamples(t *testing.T) {
+	x := &Nat{limbs: []Word{0, 64, 64}}
+	n := &Nat{limbs: []Word{1, 1}}
+	nMod := ModulusFromNat(n)
+
+	expectedNat := &Nat{limbs: []Word{0, 64}}
+	actualNat := new(Nat).Div(x, nMod, 2*_W)
+	if expectedNat.Cmp(actualNat) != 0 {
+		t.Errorf("%+v != %+v", expectedNat, actualNat)
+	}
+
+	nMod = ModulusFromUint64(1)
+	actualNat.Div(x, nMod, x.AnnouncedLen())
+	if x.Cmp(actualNat) != 0 {
+		t.Errorf("%+v != %+v", x, actualNat)
+	}
+}
