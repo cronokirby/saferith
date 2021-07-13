@@ -629,6 +629,17 @@ func TestBytesExamples(t *testing.T) {
 	}
 }
 
+func TestByteExample(t *testing.T) {
+	x := new(Nat).SetBytes([]byte{8, 7, 6, 5, 4, 3, 2, 1, 0})
+	for i := 0; i <= 8; i++ {
+		expected := byte(i)
+		actual := x.Byte(i)
+		if expected != actual {
+			t.Errorf("%+v != %+v", expected, actual)
+		}
+	}
+}
+
 func TestModInverseEvenExamples(t *testing.T) {
 	var z, x Nat
 	x.SetUint64(9)
