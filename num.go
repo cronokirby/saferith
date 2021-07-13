@@ -590,22 +590,56 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 //
 // cap determines the number of bits to keep in the result.
 func (z *Nat) Div(x *Nat, m *Modulus, cap uint) *Nat {
+	if len(x.limbs) < len(m.nat.limbs) || x.reduced == m {
+		z.limbs = z.resizedLimbs(int((cap + _W - 1) / _W))
+		for i := 0; i < len(z.limbs); i++ {
+			z.limbs[i] = 0
+		}
+		return z
+	}
+
 	size := len(m.nat.limbs)
 
-	remainder := make([]Word, size)
-	scratch := make([]Word, size)
-	quotientBE := make([]Word, 0, len(x.limbs)-size)
+	xLimbs := x.unaliasedLimbs(z)
 
-	for i := len(x.limbs) - 1; i >= 0; i-- {
-		q := shiftAddIn(remainder, scratch, x.limbs[i], m)
-		quotientBE = append(quotientBE, q)
+	// Enough for 2 buffers the size of m, and to store the full quotient
+	z.limbs = z.resizedLimbs(2*size + len(xLimbs))
+
+	remainder := z.limbs[:size]
+	scratch := z.limbs[size : 2*size]
+	// Our full quotient, in big endian order.
+	quotientBE := z.limbs[2*size:]
+	// We use this to append without actually reallocating. We fill our quotient
+	// in from 0 upwards.
+	qI := 0
+
+	i := len(xLimbs) - 1
+	// We can inject at least size - 1 limbs while staying under m
+	// Thus, we start injecting from index size - 2
+	start := size - 2
+	// That is, if there are at least that many limbs to choose from
+	if i < start {
+		start = i
+	}
+	for j := start; j >= 0; j-- {
+		remainder[j] = xLimbs[i]
+		i--
+		quotientBE[qI] = 0
+		qI++
+	}
+
+	for ; i >= 0; i-- {
+		q := shiftAddIn(remainder, scratch, xLimbs[i], m)
+		quotientBE[qI] = q
+		qI++
 	}
 
 	limbCount := int((cap + _W - 1) / _W)
 
 	z.limbs = z.resizedLimbs(limbCount)
-	for i := 0; i < len(z.limbs); i++ {
-		z.limbs[i] = quotientBE[len(quotientBE)-i-1]
+	// First, reverse all the limbs we want, from the last part of the buffer we used.
+	for i := 0; i < len(z.limbs) && i < len(quotientBE); i++ {
+		z.limbs[i] = quotientBE[qI-i-1]
 	}
 	// Now, we need to truncate the last limb
 	extraBits := uint(_W*limbCount) - cap
