@@ -788,3 +788,18 @@ func TestCoprimeExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 }
+
+func TestTrueLenExamples(t *testing.T) {
+	x := new(Nat).SetUint64(0x0000_0000_0000_0001)
+	expected := uint(1)
+	actual := x.TrueLen()
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+	x.SetUint64(0x0000_0000_0100_0001)
+	expected = uint(25)
+	actual = x.TrueLen()
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+}
