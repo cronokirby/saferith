@@ -1039,18 +1039,17 @@ func (z *Nat) EqZero() bool {
 	return cmpZero(z.limbs) == 1
 }
 
-// modInverse calculates the inverse of a reduced x modulo m
+// eGCD calculates and returns d := gcd(x, m) and v s.t. vx = d mod m
 //
-// This assumes that m is an odd number, but not that it's truncated
-// to its true size. This routine will only leak the announced sizes of
-// x and m.
+// This function assumes that m is and odd number, but doesn't assume
+// that m is truncated to its full size.
 //
-// We also assume that x is already reduced modulo m
-func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
-	size := len(m.limbs)
-	// Make sure that z doesn't alias either of m or x
-	xLimbs := x.unaliasedLimbs(z)
-	mLimbs := m.unaliasedLimbs(z)
+// The slices returned should be copied into the result, and not used
+// directly, for aliasing reasons.
+//
+// The recipient Nat is used only for scratch space.
+func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
+	size := len(m)
 
 	scratch := z.resizedLimbs(8 * size)
 	v := scratch[:size]
@@ -1063,7 +1062,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	u2 := scratch[7*size:]
 
 	// a = x
-	copy(a, xLimbs)
+	copy(a, x)
 	// v = 0
 	// u = 1
 	for i := 0; i < size; i++ {
@@ -1073,11 +1072,11 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	u[0] = 1
 
 	// halfm = (m + 1) / 2
-	halfm[size] = addVW(halfm, mLimbs, 1)
+	halfm[size] = addVW(halfm, m, 1)
 	shrVU(halfm, halfm, 1)
 	halfm = halfm[:size]
 
-	copy(b, m.limbs)
+	copy(b, m)
 
 	// Idea:
 	//
@@ -1111,7 +1110,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 		shrVU(a, a, 1)
 		// u = (u - v) / 2 mod m
 		subCarry := choice(subVV(u, u, v))
-		addVV(u1, u, m.limbs)
+		addVV(u1, u, m)
 		ctCondCopy(subCarry, u, u1)
 		uOdd = choice(shrVU(u, u, 1) >> (_W - 1))
 		addVV(u1, u, halfm)
@@ -1122,7 +1121,24 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 		ctCondCopy(aEven, u, u2)
 	}
 
-	z.limbs = v
+	return a, v
+}
+
+// modInverse calculates the inverse of a reduced x modulo m
+//
+// This assumes that m is an odd number, but not that it's truncated
+// to its true size. This routine will only leak the announced sizes of
+// x and m.
+//
+// We also assume that x is already reduced modulo m
+func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
+	size := len(m.limbs)
+	// Make sure that z doesn't alias either of m or x
+	xLimbs := x.unaliasedLimbs(z)
+	mLimbs := m.unaliasedLimbs(z)
+	_, v := z.eGCD(xLimbs, mLimbs)
+	z.limbs = z.resizedLimbs(size)
+	copy(z.limbs, v)
 	return z
 }
 
