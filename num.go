@@ -189,16 +189,43 @@ func (z *Nat) AnnouncedLen() uint {
 	return uint(len(z.limbs)) * _W
 }
 
+// leadingZeros calculates the number of leading zero bits in x.
+//
+// This should be less leaky than bits.LeadingZeros, leaking only the number
+// of zero bits, but not other information about the value of x.
+func leadingZeros(x Word) uint {
+	stillZero := choice(1)
+	leadingZeroBytes := Word(0)
+	for i := _W - 8; i >= 0; i -= 8 {
+		stillZero &= ctEq((x>>i)&0xFF, 0)
+		leadingZeroBytes += Word(stillZero)
+	}
+	leadingZeroBits := Word(0)
+	bytesPerLimb := Word(_W / 8)
+	// This means that there's a byte that might have some zeros in it
+	if leadingZeroBytes < bytesPerLimb {
+		firstNonZeroByte := (x >> (8 * (bytesPerLimb - 1 - leadingZeroBytes))) & 0xFF
+		stillZero = choice(1)
+		for i := 7; i >= 0; i-- {
+			stillZero &= ctEq((firstNonZeroByte>>i)&0b1, 0)
+			leadingZeroBits += Word(stillZero)
+		}
+	}
+	return uint(leadingZeroBytes + leadingZeroBits)
+}
+
 // TrueLen calculates the exact number of bits needed to represent z
 //
-// This function will leak this value, and violates the standard contract
-// around Nats and announced length. For most purposes, `AnnouncedLen` should
-// be used instead.
+// This function violates the standard contract around Nats and announced length.
+// For most purposes, `AnnouncedLen` should be used instead.
+//
+// That being said, this function does try to limit its leakage, and should
+// only leak the number of leading zero bits in the number.
 func (z *Nat) TrueLen() uint {
 	limbSize := trueSize(z.limbs)
 	size := limbSize * _W
 	if limbSize > 0 {
-		size -= uint(bits.LeadingZeros(uint(z.limbs[limbSize-1])))
+		size -= leadingZeros(z.limbs[limbSize-1])
 	}
 	return size
 }
