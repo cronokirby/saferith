@@ -405,6 +405,27 @@ func TestModSqrt(t *testing.T) {
 	}
 }
 
+func testMultiplyThenDivide(x Nat, m Modulus) bool {
+	mNat := &m.nat
+
+	xm := new(Nat).Mul(&x, mNat, x.AnnouncedLen()+mNat.AnnouncedLen())
+	divided := new(Nat).Div(xm, &m, x.AnnouncedLen())
+	if divided.Cmp(&x) != 0 {
+		return false
+	}
+	// Adding m - 1 shouldn't change the result either
+	xm.Add(xm, new(Nat).Sub(mNat, new(Nat).SetUint64(1), xm.AnnouncedLen()), xm.AnnouncedLen())
+	divided = new(Nat).Div(xm, &m, x.AnnouncedLen())
+	return divided.Cmp(&x) == 0
+}
+
+func TestMultiplyThenDivide(t *testing.T) {
+	err := quick.Check(testMultiplyThenDivide, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestUint64Creation(t *testing.T) {
 	var x, y Nat
 	x.SetUint64(0)
