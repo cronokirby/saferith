@@ -174,10 +174,12 @@ func (z *Nat) unaliasedLimbs(x *Nat) []Word {
 // trueSize calculates the actual size necessary for representing these limbs
 //
 // This is the size with leading zeros removed. This leaks the number
-// of such zeros
+// of such zeros, but nothing else.
 func trueSize(limbs []Word) uint {
 	var size uint
-	for size = uint(len(limbs)); size > 0 && limbs[size-1] == 0; size-- {
+	// Instead of checking == 0 directly, which may leak the value, we instead
+	// compare with zero in constant time, and check if that succeeded in a leaky way.
+	for size = uint(len(limbs)); size > 0 && ctEq(limbs[size-1], 0) == 1; size-- {
 	}
 	return size
 }
