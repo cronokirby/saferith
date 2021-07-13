@@ -39,6 +39,23 @@ func TestBigConversion(t *testing.T) {
 	}
 }
 
+func testByteVsBytes(x Nat) bool {
+	bytes := x.Bytes()
+	for i := 0; i < len(bytes); i++ {
+		if x.Byte(i) != bytes[len(bytes)-i-1] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestByteVsBytes(t *testing.T) {
+	err := quick.Check(testByteVsBytes, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testAddZeroIdentity(n Nat) bool {
 	var x, zero Nat
 	zero.SetUint64(0)
