@@ -73,6 +73,31 @@ func ctCondSwap(v Choice, a, b []Word) {
 	}
 }
 
+// CondAssign sets z <- yes ? x : z.
+//
+// This function doesn't leak any information about whether the assignment happened.
+//
+// The announced size of the result will be the largest size between z and x.
+func (z *Nat) CondAssign(yes Choice, x *Nat) *Nat {
+	maxSize := len(x.limbs)
+	if len(z.limbs) > maxSize {
+		maxSize = len(z.limbs)
+	}
+
+	xLimbs := x.resizedLimbs(maxSize)
+	z.limbs = z.resizedLimbs(maxSize)
+
+	ctCondCopy(yes, z.limbs, xLimbs)
+
+	// If the value we're potentially assigning has a different reduction,
+	// then there's nothing we can conclude about the resulting reduction.
+	if z.reduced != x.reduced {
+		z.reduced = nil
+	}
+
+	return z
+}
+
 // "Missing" Functions
 // These are routines that could in theory be implemented in assembly,
 // but aren't already present in Go's big number routines
