@@ -755,6 +755,29 @@ func (z *Nat) ModSub(x *Nat, y *Nat, m *Modulus) *Nat {
 	return z
 }
 
+// ModNeg calculates z <- -x mod m
+func (z *Nat) ModNeg(x *Nat, m *Modulus) *Nat {
+	// First reduce x mod m
+	z.Mod(x, m)
+
+	size := len(m.nat.limbs)
+	scratch := z.resizedLimbs(2 * size)
+	z.limbs = scratch[:size]
+	zero := scratch[size:]
+	for i := 0; i < len(zero); i++ {
+		zero[i] = 0
+	}
+
+	borrow := subVV(z.limbs, zero, z.limbs)
+	underflow := ctEq(Word(borrow), 1)
+	// Add back M if we underflowed
+	addVV(zero, z.limbs, m.nat.limbs)
+	ctCondCopy(underflow, z.limbs, zero)
+
+	z.reduced = m
+	return z
+}
+
 // Add calculates z <- x + y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
