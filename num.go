@@ -13,6 +13,14 @@ import (
 //
 // We use a separate type instead of bool, in order to be able to make decisions without leaking
 // which decision was made.
+//
+// You can easily convert a Choice into a bool with the operation c == 1.
+//
+// In general, logical operations on bool become bitwise operations on choice:
+//     a && b => a & b
+//     a || b => a | b
+//     a != b => a ^ b
+//     !a     => 1 ^ a
 type Choice Word
 
 // ctEq compares x and y for equality, returning 1 if equal, and 0 otherwise
