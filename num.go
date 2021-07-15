@@ -547,9 +547,9 @@ func (m *Modulus) BitLen() uint {
 	return uint(len(m.nat.limbs))*_W - m.leading
 }
 
-// Cmp compares two moduli, returning -1 if m < n, 0 if m == n, and 1 if m > n
+// Cmp compares two moduli, returning results for (>, =, <).
 //
-// This will not leak information about the value of this comparison.
+// This will not leak information about the value of these relations, or the moduli.
 func (m *Modulus) Cmp(n *Modulus) (Choice, Choice, Choice) {
 	return m.nat.Cmp(&n.nat)
 }
@@ -1089,14 +1089,13 @@ func cmpZero(a []Word) Choice {
 	return ctEq(v, 0)
 }
 
-// Cmp compares two natural numbers, returning 0 if equal, -1 if z < x, and 1 if z > x
+// Cmp compares two natural numbers, returning results for (>, =, <) in that order.
 //
-// This leaks nothing about the values of the numbers, except for their rspective
-// announced lengths.
+// Because these relations are mutually exclusive, exactly one of these values
+// will be true.
 //
-// Be mindful that even though the comparison is done without leaks, branching on the result
-// can introduce a leak of this result. Because of this, be careful with how you use
-// this function.
+// This function doesn't leak any information about the values involved, only
+// their announced lengths.
 func (z *Nat) Cmp(x *Nat) (Choice, Choice, Choice) {
 	// Rough Idea: Resize both slices to the maximum length, then compare
 	// using that length
@@ -1121,23 +1120,26 @@ func (z *Nat) Cmp(x *Nat) (Choice, Choice, Choice) {
 	return geq & (1 ^ eq), eq, 1 ^ geq
 }
 
-// CmpMod compares this natural number with a modulus, returning 0 if z == m, -1 if z < m, and 1 if z > m
+// CmpMod compares this natural number with a modulus, returning results for (>, =, <)
 //
-// This doesn't leak anything about the values of the numbers, but the same warnings as for Cmp apply.
+// This doesn't leak anything about the values of the numbers, only their lengths.
 func (z *Nat) CmpMod(m *Modulus) (Choice, Choice, Choice) {
 	return z.Cmp(&m.nat)
 }
 
+// Eq checks if z = y.
+//
+// This is equivalent to looking at the second choice returned by Cmp.
+// But, since looking at equality is so common, this function is provided
+// as an extra utility.
 func (z *Nat) Eq(y *Nat) Choice {
 	_, eq, _ := z.Cmp(y)
 	return eq
 }
 
-// EqZero compares z to 0, returning true if they're equal
+// EqZero compares z to 0.
 //
-// While calling this function will not leak whether or not this number is equal to zero,
-// an if condition using its result can leak this information. Because of this,
-// be mindful to not misuse this function.
+// This is more efficient that calling Eq between this Nat and a zero Nat.
 func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
