@@ -93,6 +93,21 @@ func TestAddCommutative(t *testing.T) {
 	}
 }
 
+func testCondAssign(a Nat, b Nat) bool {
+	shouldBeA := new(Nat).SetNat(&a)
+	shouldBeB := new(Nat).SetNat(&a)
+	shouldBeA.CondAssign(0, &b)
+	shouldBeB.CondAssign(1, &b)
+	return shouldBeA.Cmp(&a) == 0 && shouldBeB.Cmp(&b) == 0
+}
+
+func TestCondAssign(t *testing.T) {
+	err := quick.Check(testCondAssign, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testAddAssociative(a Nat, b Nat, c Nat) bool {
 	var order1, order2 Nat
 	for _, x := range []uint{256, 128, 64, 32, 8} {
