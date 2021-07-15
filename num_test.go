@@ -114,6 +114,20 @@ func TestAddAssociative(t *testing.T) {
 	}
 }
 
+func testModAddNegIsSub(a Nat, b Nat, m Modulus) bool {
+	subbed := new(Nat).ModSub(&a, &b, &m)
+	negated := new(Nat).ModNeg(&b, &m)
+	addWithNegated := new(Nat).ModAdd(&a, negated, &m)
+	return subbed.Cmp(addWithNegated) == 0
+}
+
+func TestModAddNegIsSub(t *testing.T) {
+	err := quick.Check(testModAddNegIsSub, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testMulCommutative(a Nat, b Nat) bool {
 	var aTimesB, bTimesA Nat
 	for _, x := range []uint{256, 128, 64, 32, 8} {
@@ -710,6 +724,22 @@ func TestModSubExamples(t *testing.T) {
 	y := new(Nat).SetUint64(1)
 	x.ModSub(x, y, m)
 	z := new(Nat).SetUint64(12)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
+
+func TestModNegExamples(t *testing.T) {
+	m := ModulusFromUint64(13)
+	x := new(Nat).SetUint64(0)
+	x.ModNeg(x, m)
+	z := new(Nat).SetUint64(0)
+	if x.Cmp(z) != 0 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetUint64(1)
+	x.ModNeg(x, m)
+	z.SetUint64(12)
 	if x.Cmp(z) != 0 {
 		t.Errorf("%+v != %+v", x, z)
 	}
