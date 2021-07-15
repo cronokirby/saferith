@@ -311,6 +311,34 @@ func BenchmarkLargeModAddNat(b *testing.B) {
 	_benchmarkModAddNat(m, b)
 }
 
+func _benchmarkModNegNat(m *Modulus, b *testing.B) {
+	b.StopTimer()
+
+	x := new(Nat).SetBytes(ones())
+	x.Mod(x, m)
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		var z Nat
+		z.ModNeg(x, m)
+		resultNat = z
+	}
+}
+
+func BenchmarkModNegNat(b *testing.B) {
+	b.StopTimer()
+
+	m := ModulusFromUint64(13)
+	_benchmarkModNegNat(m, b)
+}
+
+func BenchmarkLargeModNegNat(b *testing.B) {
+	b.StopTimer()
+
+	m := ModulusFromBytes(modulus2048())
+	_benchmarkModNegNat(m, b)
+}
+
 func BenchmarkMulNat(b *testing.B) {
 	b.StopTimer()
 
