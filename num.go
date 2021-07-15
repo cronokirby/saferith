@@ -207,11 +207,11 @@ func (z *Nat) unaliasedLimbs(x *Nat) []Word {
 //
 // This is the size with leading zeros removed. This leaks the number
 // of such zeros, but nothing else.
-func trueSize(limbs []Word) uint {
-	var size uint
+func trueSize(limbs []Word) int {
 	// Instead of checking == 0 directly, which may leak the value, we instead
 	// compare with zero in constant time, and check if that succeeded in a leaky way.
-	for size = uint(len(limbs)); size > 0 && ctEq(limbs[size-1], 0) == 1; size-- {
+	var size int
+	for size = len(limbs); size > 0 && ctEq(limbs[size-1], 0) == 1; size-- {
 	}
 	return size
 }
@@ -224,7 +224,7 @@ func (z *Nat) AnnouncedLen() int {
 // leadingZeros calculates the number of leading zero bits in x.
 //
 // This shouldn't leak any information about the value of x.
-func leadingZeros(x Word) uint {
+func leadingZeros(x Word) int {
 	stillZero := Choice(1)
 	leadingZeroBytes := Word(0)
 	for i := _W - 8; i >= 0; i -= 8 {
@@ -242,7 +242,7 @@ func leadingZeros(x Word) uint {
 			leadingZeroBits += Word(stillZero)
 		}
 	}
-	return uint(8*leadingZeroBytes + leadingZeroBits)
+	return int(8*leadingZeroBytes + leadingZeroBits)
 }
 
 // TrueLen calculates the exact number of bits needed to represent z
@@ -252,7 +252,7 @@ func leadingZeros(x Word) uint {
 //
 // That being said, this function does try to limit its leakage, and should
 // only leak the number of leading zero bits in the number.
-func (z *Nat) TrueLen() uint {
+func (z *Nat) TrueLen() int {
 	limbSize := trueSize(z.limbs)
 	size := limbSize * _W
 	if limbSize > 0 {
@@ -484,7 +484,7 @@ func (m *Modulus) precomputeValues() {
 	if len(m.nat.limbs) < 1 {
 		panic("Modulus is empty")
 	}
-	m.leading = bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1]))
+	m.leading = leadingZeros(m.nat.limbs[len(m.nat.limbs)-1])
 	// I think checking the bit directly might leak more data than we'd like
 	m.even = ctEq(m.nat.limbs[0]&1, 0) == 1
 	// There's no point calculating this if m isn't even, and we can leak evenness
