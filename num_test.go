@@ -59,11 +59,11 @@ func TestByteVsBytes(t *testing.T) {
 func testAddZeroIdentity(n Nat) bool {
 	var x, zero Nat
 	zero.SetUint64(0)
-	x.Add(&n, &zero, uint(len(n.limbs)*_W))
+	x.Add(&n, &zero, len(n.limbs)*_W)
 	if n.Eq(&x) != 1 {
 		return false
 	}
-	x.Add(&zero, &n, uint(len(n.limbs)*_W))
+	x.Add(&zero, &n, len(n.limbs)*_W)
 	return n.Eq(&x) == 1
 }
 
@@ -76,7 +76,7 @@ func TestAddZeroIdentity(t *testing.T) {
 
 func testAddCommutative(a Nat, b Nat) bool {
 	var aPlusB, bPlusA Nat
-	for _, x := range []uint{256, 128, 64, 32, 8} {
+	for _, x := range []int{256, 128, 64, 32, 8} {
 		aPlusB.Add(&a, &b, x)
 		bPlusA.Add(&b, &a, x)
 		if aPlusB.Eq(&bPlusA) != 1 {
@@ -110,7 +110,7 @@ func TestCondAssign(t *testing.T) {
 
 func testAddAssociative(a Nat, b Nat, c Nat) bool {
 	var order1, order2 Nat
-	for _, x := range []uint{256, 128, 64, 32, 8} {
+	for _, x := range []int{256, 128, 64, 32, 8} {
 		order1 = *order1.Add(&a, &b, x)
 		order1.Add(&order1, &c, x)
 		order2 = *order2.Add(&b, &c, x)
@@ -145,7 +145,7 @@ func TestModAddNegIsSub(t *testing.T) {
 
 func testMulCommutative(a Nat, b Nat) bool {
 	var aTimesB, bTimesA Nat
-	for _, x := range []uint{256, 128, 64, 32, 8} {
+	for _, x := range []int{256, 128, 64, 32, 8} {
 		aTimesB.Mul(&a, &b, x)
 		bTimesA.Mul(&b, &a, x)
 		if aTimesB.Eq(&bTimesA) != 1 {
@@ -164,7 +164,7 @@ func TestMulCommutative(t *testing.T) {
 
 func testMulAssociative(a Nat, b Nat, c Nat) bool {
 	var order1, order2 Nat
-	for _, x := range []uint{256, 128, 64, 32, 8} {
+	for _, x := range []int{256, 128, 64, 32, 8} {
 		order1 = *order1.Mul(&a, &b, x)
 		order1.Mul(&order1, &c, x)
 		order2 = *order2.Mul(&b, &c, x)
@@ -186,11 +186,11 @@ func TestMulAssociative(t *testing.T) {
 func testMulOneIdentity(n Nat) bool {
 	var x, one Nat
 	one.SetUint64(1)
-	x.Mul(&n, &one, uint(len(n.limbs)*_W))
+	x.Mul(&n, &one, len(n.limbs)*_W)
 	if n.Eq(&x) != 1 {
 		return false
 	}
-	x.Mul(&one, &n, uint(len(n.limbs)*_W))
+	x.Mul(&one, &n, len(n.limbs)*_W)
 	return n.Eq(&x) == 1
 }
 
@@ -351,7 +351,7 @@ func testModInverseEvenMinusOne(a Nat) bool {
 	var one Nat
 	one.SetUint64(1)
 	var z Nat
-	z.Add(&a, &one, uint(len(a.limbs)*_W+1))
+	z.Add(&a, &one, len(a.limbs)*_W+1)
 	z2 := new(Nat).modInverseEven(&a, ModulusFromNat(&z))
 	return z2.Eq(&a) == 1
 }
@@ -391,7 +391,7 @@ func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	expA.Exp(&x, &a, &m)
 	expB.Exp(&x, &b, &m)
 	// Enough bits to hold the full amount
-	aPlusB.Add(&a, &b, uint(len(a.limbs)*_W)+1)
+	aPlusB.Add(&a, &b, len(a.limbs)*_W+1)
 	way1.ModMul(&expA, &expB, &m)
 	way2.Exp(&x, &aPlusB, &m)
 	return way1.Eq(&way2) == 1
@@ -779,7 +779,7 @@ func TestBigExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 	expectedNat := x
-	actualNat := new(Nat).SetBig(expected, uint(len(theBytes)*8))
+	actualNat := new(Nat).SetBig(expected, len(theBytes)*8)
 	if expectedNat.Eq(actualNat) != 1 {
 		t.Errorf("%+v != %+v", expectedNat, actualNat)
 	}

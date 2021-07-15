@@ -217,8 +217,8 @@ func trueSize(limbs []Word) uint {
 }
 
 // AnnouncedLen returns the number of bits this number is publicly known to have
-func (z *Nat) AnnouncedLen() uint {
-	return uint(len(z.limbs)) * _W
+func (z *Nat) AnnouncedLen() int {
+	return len(z.limbs) * _W
 }
 
 // leadingZeros calculates the number of leading zero bits in x.
@@ -385,7 +385,7 @@ func (z *Nat) Big() *big.Int {
 // SetBig modifies z to contain the value of x
 //
 // The size parameter is used to pad or truncate z to a certain number of bits.
-func (z *Nat) SetBig(x *big.Int, size uint) *Nat {
+func (z *Nat) SetBig(x *big.Int, size int) *Nat {
 	limbCount := int((size + _W - 1) / _W)
 	z.limbs = z.resizedLimbs(limbCount)
 	bigLimbs := x.Bits()
@@ -457,7 +457,7 @@ func (z *Nat) SetNat(x *Nat) *Nat {
 type Modulus struct {
 	nat Nat
 	// the number of leading zero bits
-	leading uint
+	leading int
 	// The inverse of the least significant limb, modulo W
 	m0inv Word
 	// If true, then this modulus is even
@@ -484,7 +484,7 @@ func (m *Modulus) precomputeValues() {
 	if len(m.nat.limbs) < 1 {
 		panic("Modulus is empty")
 	}
-	m.leading = uint(bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1])))
+	m.leading = bits.LeadingZeros(uint(m.nat.limbs[len(m.nat.limbs)-1]))
 	// I think checking the bit directly might leak more data than we'd like
 	m.even = ctEq(m.nat.limbs[0]&1, 0) == 1
 	// There's no point calculating this if m isn't even, and we can leak evenness
@@ -543,8 +543,8 @@ func (m *Modulus) Bytes() []byte {
 // BitLen returns the exact number of bits used to store this Modulus
 //
 // Moduli are allowed to leak this value.
-func (m *Modulus) BitLen() uint {
-	return uint(len(m.nat.limbs))*_W - m.leading
+func (m *Modulus) BitLen() int {
+	return len(m.nat.limbs)*_W - m.leading
 }
 
 // Cmp compares two moduli, returning results for (>, =, <).
@@ -664,7 +664,7 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 // an arbitrary Nat.
 //
 // cap determines the number of bits to keep in the result.
-func (z *Nat) Div(x *Nat, m *Modulus, cap uint) *Nat {
+func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 	if len(x.limbs) < len(m.nat.limbs) || x.reduced == m {
 		z.limbs = z.resizedLimbs(int((cap + _W - 1) / _W))
 		for i := 0; i < len(z.limbs); i++ {
@@ -709,7 +709,7 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap uint) *Nat {
 		qI++
 	}
 
-	limbCount := int((cap + _W - 1) / _W)
+	limbCount := (cap + _W - 1) / _W
 
 	z.limbs = z.resizedLimbs(limbCount)
 	// First, reverse all the limbs we want, from the last part of the buffer we used.
@@ -717,7 +717,7 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap uint) *Nat {
 		z.limbs[i] = quotientBE[qI-i-1]
 	}
 	// Now, we need to truncate the last limb
-	extraBits := uint(_W*limbCount) - cap
+	extraBits := _W*limbCount - cap
 	bitsToKeep := _W - extraBits
 	mask := ^(^Word(0) << bitsToKeep)
 	// LEAK: the size of z (since we're making an extra access at the end)
@@ -813,7 +813,7 @@ func (z *Nat) ModNeg(x *Nat, m *Modulus) *Nat {
 // Add calculates z <- x + y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
-func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
+func (z *Nat) Add(x *Nat, y *Nat, cap int) *Nat {
 	limbCount := int((cap + _W - 1) / _W)
 	xLimbs := x.resizedLimbs(limbCount)
 	yLimbs := y.resizedLimbs(limbCount)
@@ -836,7 +836,7 @@ func (z *Nat) Add(x *Nat, y *Nat, cap uint) *Nat {
 // Sub calculates z <- x - y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
-func (z *Nat) Sub(x *Nat, y *Nat, cap uint) *Nat {
+func (z *Nat) Sub(x *Nat, y *Nat, cap int) *Nat {
 	limbCount := int((cap + _W - 1) / _W)
 	xLimbs := x.resizedLimbs(limbCount)
 	yLimbs := y.resizedLimbs(limbCount)
@@ -948,7 +948,7 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 // Mul calculates z <- x * y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
-func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
+func (z *Nat) Mul(x *Nat, y *Nat, cap int) *Nat {
 	limbCount := int((cap + _W - 1) / _W)
 	// Since we neex to set z to zero, we have no choice to use a new buffer,
 	// because we allow z to alias either of the arguments
@@ -961,7 +961,7 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap uint) *Nat {
 		addMulVVW(zLimbs[i:], xLimbs, yLimbs[i])
 	}
 	// Now, we need to truncate the last limb
-	extraBits := uint(_W*limbCount) - cap
+	extraBits := _W*limbCount - cap
 	bitsToKeep := _W - extraBits
 	mask := ^(^Word(0) << bitsToKeep)
 	// LEAK: the size of z (since we're making an extra access at the end)
@@ -1363,7 +1363,7 @@ func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	newZ.limbs = divDouble(m.nat.limbs, x.limbs, []Word{})
 	newZ.modInverse(&newZ, x)
 	inverseZero := cmpZero(newZ.limbs)
-	newZ.Mul(&newZ, &m.nat, uint(2*size*_W))
+	newZ.Mul(&newZ, &m.nat, 2*size*_W)
 	newZ.limbs = newZ.resizedLimbs(2 * size)
 	subVW(newZ.limbs, newZ.limbs, 1)
 	divDouble(newZ.limbs, x.limbs, newZ.limbs)
