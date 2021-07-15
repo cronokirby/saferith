@@ -1,7 +1,6 @@
 package safenum
 
 import (
-	"crypto/subtle"
 	"math/big"
 	"math/bits"
 )
@@ -543,7 +542,7 @@ func (m *Modulus) BitLen() uint {
 // Cmp compares two moduli, returning -1 if m < n, 0 if m == n, and 1 if m > n
 //
 // This will not leak information about the value of this comparison.
-func (m *Modulus) Cmp(n *Modulus) int {
+func (m *Modulus) Cmp(n *Modulus) (Choice, Choice, Choice) {
 	return m.nat.Cmp(&n.nat)
 }
 
@@ -1090,7 +1089,7 @@ func cmpZero(a []Word) Choice {
 // Be mindful that even though the comparison is done without leaks, branching on the result
 // can introduce a leak of this result. Because of this, be careful with how you use
 // this function.
-func (z *Nat) Cmp(x *Nat) int {
+func (z *Nat) Cmp(x *Nat) (Choice, Choice, Choice) {
 	// Rough Idea: Resize both slices to the maximum length, then compare
 	// using that length
 
@@ -1111,14 +1110,19 @@ func (z *Nat) Cmp(x *Nat) int {
 		eq &= eq_at_i
 		geq = (eq_at_i & geq) | ((1 ^ eq_at_i) & ctGt(zLimbs[i], xLimbs[i]))
 	}
-	return subtle.ConstantTimeSelect(int(eq), 0, subtle.ConstantTimeSelect(int(geq), 1, -1))
+	return geq & (1 ^ eq), eq, 1 ^ geq
 }
 
 // CmpMod compares this natural number with a modulus, returning 0 if z == m, -1 if z < m, and 1 if z > m
 //
 // This doesn't leak anything about the values of the numbers, but the same warnings as for Cmp apply.
-func (z *Nat) CmpMod(m *Modulus) int {
+func (z *Nat) CmpMod(m *Modulus) (Choice, Choice, Choice) {
 	return z.Cmp(&m.nat)
+}
+
+func (z *Nat) Eq(y *Nat) Choice {
+	_, eq, _ := z.Cmp(y)
+	return eq
 }
 
 // EqZero compares z to 0, returning true if they're equal
@@ -1126,8 +1130,8 @@ func (z *Nat) CmpMod(m *Modulus) int {
 // While calling this function will not leak whether or not this number is equal to zero,
 // an if condition using its result can leak this information. Because of this,
 // be mindful to not misuse this function.
-func (z *Nat) EqZero() bool {
-	return cmpZero(z.limbs) == 1
+func (z *Nat) EqZero() Choice {
+	return cmpZero(z.limbs)
 }
 
 // eGCD calculates and returns d := gcd(x, m) and v s.t. vx = d mod m
@@ -1392,7 +1396,7 @@ func (z *Nat) tonelliShanks(x *Nat, p *Modulus) *Nat {
 	shrVU(reducedPminusOne.limbs, reducedPminusOne.limbs, 1)
 
 	nonSquare := new(Nat).SetUint64(2)
-	for scratch.Exp(nonSquare, reducedPminusOne, p).Cmp(one) == 0 {
+	for scratch.Exp(nonSquare, reducedPminusOne, p).Eq(one) == 1 {
 		nonSquare.Add(nonSquare, one, p.BitLen())
 	}
 
