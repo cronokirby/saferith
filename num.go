@@ -265,19 +265,24 @@ func (z *Nat) TrueLen() int {
 //
 // This will always write out the full capacity of the number, without
 // any kind trimming.
-//
-// This will panic if the buffer's length cannot accomodate the capacity of the number
 func (z *Nat) FillBytes(buf []byte) []byte {
-	length := len(z.limbs) * _S
-	i := length
+	for i := 0; i < len(buf); i++ {
+		buf[i] = 0
+	}
+
+	i := len(buf)
 	// LEAK: Number of limbs
 	// OK: The number of limbs is public
 	// LEAK: The addresses touched in the out array
 	// OK: Every member of out is touched
+Outer:
 	for _, x := range z.limbs {
 		y := x
 		for j := 0; j < _S; j++ {
 			i--
+			if i < 0 {
+				break Outer
+			}
 			buf[i] = byte(y)
 			y >>= 8
 		}
