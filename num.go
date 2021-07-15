@@ -8,38 +8,38 @@ import (
 
 // Constant Time Utilities
 
-// choice represents a constant-time boolean.
+// Choice represents a constant-time boolean.
 //
-// The value of choice is always either 1 or 0.
+// The value of Choice is always either 1 or 0.
 //
 // We use a separate type instead of bool, in order to be able to make decisions without leaking
 // which decision was made.
-type choice Word
+type Choice Word
 
 // ctEq compares x and y for equality, returning 1 if equal, and 0 otherwise
 //
 // This doesn't leak any information about either of them
-func ctEq(x, y Word) choice {
+func ctEq(x, y Word) Choice {
 	// If x == y, then x ^ y should be all zero bits.
 	q := uint64(x ^ y)
 	// For any q != 0, either the MSB of q, or the MSB of -q is 1.
 	// We can thus or those together, and check the top bit. When q is zero,
 	// that means that x and y are equal, so we negate that top bit.
-	return 1 ^ choice((q|-q)>>63)
+	return 1 ^ Choice((q|-q)>>63)
 }
 
 // ctGt checks x > y, returning 1 or 0
 //
 // This doesn't leak any information about either of them
-func ctGt(x, y Word) choice {
+func ctGt(x, y Word) Choice {
 	z := y - x
-	return choice((z ^ ((x ^ y) & (x ^ z))) >> (_W - 1))
+	return Choice((z ^ ((x ^ y) & (x ^ z))) >> (_W - 1))
 }
 
 // ctIfElse selects x if v = 1, and y otherwise
 //
 // This doesn't leak the value of any of its inputs
-func ctIfElse(v choice, x, y Word) Word {
+func ctIfElse(v Choice, x, y Word) Word {
 	// mask should be all 1s if v is 1, otherwise all 0s
 	mask := -Word(v)
 	return y ^ (mask & (y ^ x))
@@ -52,7 +52,7 @@ func ctIfElse(v choice, x, y Word) Word {
 // LEAK: the length of the slices
 //
 // Otherwise, which branch was taken isn't leaked
-func ctCondCopy(v choice, x, y []Word) {
+func ctCondCopy(v Choice, x, y []Word) {
 	for i := 0; i < len(x); i++ {
 		x[i] = ctIfElse(v, y[i], x[i])
 	}
@@ -65,7 +65,7 @@ func ctCondCopy(v choice, x, y []Word) {
 // LEAK: the length of the slices
 //
 // Whether or not a swap happened isn't leaked
-func ctCondSwap(v choice, a, b []Word) {
+func ctCondSwap(v Choice, a, b []Word) {
 	for i := 0; i < len(a) && i < len(b); i++ {
 		ai := a[i]
 		a[i] = ctIfElse(v, b[i], ai)
@@ -86,7 +86,7 @@ func div(hi, lo, d Word) (Word, Word) {
 	for i := _W - 1; i > 0; i-- {
 		j := _W - i
 		w := (hi << j) | (lo >> i)
-		sel := ctEq(w, d) | ctGt(w, d) | choice(hi>>i)
+		sel := ctEq(w, d) | ctGt(w, d) | Choice(hi>>i)
 		hi2 := (w - d) >> j
 		lo2 := lo - (d << i)
 		hi = ctIfElse(sel, hi2, hi)
@@ -94,7 +94,7 @@ func div(hi, lo, d Word) (Word, Word) {
 		quo |= Word(sel)
 		quo <<= 1
 	}
-	sel := ctEq(lo, d) | ctGt(lo, d) | choice(hi)
+	sel := ctEq(lo, d) | ctGt(lo, d) | Choice(hi)
 	quo |= Word(sel)
 	rem := ctIfElse(sel, lo-d, lo)
 	return quo, rem
@@ -193,7 +193,7 @@ func (z *Nat) AnnouncedLen() uint {
 //
 // This shouldn't leak any information about the value of x.
 func leadingZeros(x Word) uint {
-	stillZero := choice(1)
+	stillZero := Choice(1)
 	leadingZeroBytes := Word(0)
 	for i := _W - 8; i >= 0; i -= 8 {
 		stillZero &= ctEq((x>>i)&0xFF, 0)
@@ -204,7 +204,7 @@ func leadingZeros(x Word) uint {
 	// This means that there's a byte that might have some zeros in it
 	if leadingZeroBytes < bytesPerLimb {
 		firstNonZeroByte := (x >> (8 * (bytesPerLimb - 1 - leadingZeroBytes))) & 0xFF
-		stillZero = choice(1)
+		stillZero = Choice(1)
 		for i := 7; i >= 0; i-- {
 			stillZero &= ctEq((firstNonZeroByte>>i)&0b1, 0)
 			leadingZeroBits += Word(stillZero)
@@ -1008,7 +1008,7 @@ func (z *Nat) expEven(x *Nat, y *Nat, m *Modulus) *Nat {
 		for j := _W; j >= 0; j-- {
 			z.ModMul(z, z, m)
 
-			sel := choice((yi >> j) & 1)
+			sel := Choice((yi >> j) & 1)
 			scratch.ModMul(z, xModM, m)
 			ctCondCopy(sel, z.limbs, scratch.limbs)
 		}
@@ -1029,8 +1029,8 @@ func (z *Nat) Exp(x *Nat, y *Nat, m *Modulus) *Nat {
 }
 
 // cmpEq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
-func cmpEq(x []Word, y []Word) choice {
-	res := choice(1)
+func cmpEq(x []Word, y []Word) Choice {
+	res := Choice(1)
 	for i := 0; i < len(x) && i < len(y); i++ {
 		res &= ctEq(x[i], y[i])
 	}
@@ -1038,18 +1038,18 @@ func cmpEq(x []Word, y []Word) choice {
 }
 
 // cmpGeq compares two limbs (same size) returning 1 if x >= y, and 0 otherwise
-func cmpGeq(x []Word, y []Word) choice {
+func cmpGeq(x []Word, y []Word) Choice {
 	var c uint
 	for i := 0; i < len(x) && i < len(y); i++ {
 		_, c = bits.Sub(uint(x[i]), uint(y[i]), c)
 	}
-	return 1 ^ choice(c)
+	return 1 ^ Choice(c)
 }
 
 // cmpZero checks if a slice is equal to zero, in constant time
 //
 // LEAK: the length of a
-func cmpZero(a []Word) choice {
+func cmpZero(a []Word) Choice {
 	var v Word
 	for i := 0; i < len(a); i++ {
 		v |= a[i]
@@ -1079,8 +1079,8 @@ func (z *Nat) Cmp(x *Nat) int {
 	zLimbs := z.resizedLimbs(size)
 	xLimbs := x.resizedLimbs(size)
 
-	eq := choice(1)
-	geq := choice(0)
+	eq := Choice(1)
+	geq := Choice(0)
 	for i := 0; i < len(zLimbs) && i < len(xLimbs); i++ {
 		eq_at_i := ctEq(zLimbs[i], xLimbs[i])
 		eq &= eq_at_i
@@ -1160,9 +1160,9 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 	// We run for 2 * k - 1 iterations, with k the number of bits of the modulus
 	for i := 0; i < 2*_W*size-1; i++ {
 		// a1 and u2 will hold the results to use if a is even
-		aOdd := choice(shrVU(a1, a, 1) >> (_W - 1))
+		aOdd := Choice(shrVU(a1, a, 1) >> (_W - 1))
 		aEven := 1 ^ aOdd
-		uOdd := choice(shrVU(u2, u, 1) >> (_W - 1))
+		uOdd := Choice(shrVU(u2, u, 1) >> (_W - 1))
 		addVV(u1, u2, halfm)
 		ctCondCopy(uOdd, u2, u1)
 
@@ -1175,10 +1175,10 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 		subVV(a, a, b)
 		shrVU(a, a, 1)
 		// u = (u - v) / 2 mod m
-		subCarry := choice(subVV(u, u, v))
+		subCarry := Choice(subVV(u, u, v))
 		addVV(u1, u, m)
 		ctCondCopy(subCarry, u, u1)
-		uOdd = choice(shrVU(u, u, 1) >> (_W - 1))
+		uOdd = Choice(shrVU(u, u, 1) >> (_W - 1))
 		addVV(u1, u, halfm)
 		ctCondCopy(uOdd, u, u1)
 
@@ -1200,7 +1200,7 @@ func (x *Nat) Coprime(y *Nat) int {
 	b := y.resizedLimbs(size)
 
 	// Our gcd(a, b) routine requires b to be odd, and will return garbage otherwise.
-	aOdd := choice(a[0] & 1)
+	aOdd := Choice(a[0] & 1)
 	ctCondSwap(aOdd, a, b)
 
 	scratch := new(Nat)
@@ -1209,7 +1209,7 @@ func (x *Nat) Coprime(y *Nat) int {
 	scratch.SetUint64(1)
 	one := scratch.resizedLimbs(len(d))
 
-	bOdd := choice(b[0] & 1)
+	bOdd := Choice(b[0] & 1)
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
 	// otherwise, both are even, so we want to return false anyways.
 	return int((aOdd | bOdd) & cmpEq(d, one))
