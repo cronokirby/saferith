@@ -117,3 +117,16 @@ func (z *Int) SetModSymmetric(x *Nat, m *Modulus) *Int {
 	z.sign = negatedLeq
 	return z
 }
+
+// CheckInRange checks whether or not this Int is in the range for SetModSymmetric.
+func (z *Int) CheckInRange(m *Modulus) Choice {
+	// First check that the absolute value makes sense
+	_, _, absOk := z.abs.CmpMod(m)
+
+	negated := new(Nat).ModNeg(&z.abs, m)
+	_, _, lt := negated.Cmp(&z.abs)
+	// If the negated value is strictly smaller, then we have a number out of range
+	signOk := 1 ^ lt
+
+	return absOk & signOk
+}

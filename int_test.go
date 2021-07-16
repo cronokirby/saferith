@@ -85,7 +85,11 @@ func TestIntModAddNegReturnsZero(t *testing.T) {
 
 func testIntModRoundtrip(x Nat, m Modulus) bool {
 	xModM := new(Nat).Mod(&x, &m)
-	roundTrip := new(Int).SetModSymmetric(xModM, &m).Mod(&m)
+	i := new(Int).SetModSymmetric(xModM, &m)
+	if i.CheckInRange(&m) != 1 {
+		return false
+	}
+	roundTrip := i.Mod(&m)
 	return xModM.Eq(roundTrip) == 1
 }
 
@@ -93,5 +97,13 @@ func TestIntModRoundtrip(t *testing.T) {
 	err := quick.Check(testIntModRoundtrip, &quick.Config{})
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestCheckInRangeExamples(t *testing.T) {
+	x := new(Int).SetUint64(0)
+	m := ModulusFromUint64(13)
+	if x.CheckInRange(m) != 1 {
+		t.Errorf("expected zero to be in range of modulus")
 	}
 }
