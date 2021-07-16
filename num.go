@@ -87,10 +87,7 @@ func ctCondSwap(v Choice, a, b []Word) {
 //
 // The announced size of the result will be the largest size between z and x.
 func (z *Nat) CondAssign(yes Choice, x *Nat) *Nat {
-	maxBits := x.announced
-	if z.announced > maxBits {
-		maxBits = z.announced
-	}
+	maxBits := z.maxAnnounced(x)
 
 	xLimbs := x.resizedLimbs(maxBits)
 	z.limbs = z.resizedLimbs(maxBits)
@@ -200,6 +197,15 @@ func (z *Nat) checkInvariants() bool {
 		}
 	}
 	return true
+}
+
+// maxAnnounced returns the larger announced length of z and y
+func (z *Nat) maxAnnounced(y *Nat) int {
+	maxBits := z.announced
+	if y.announced > maxBits {
+		maxBits = y.announced
+	}
+	return maxBits
 }
 
 // ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
@@ -1082,10 +1088,7 @@ func (z *Nat) Cmp(x *Nat) (Choice, Choice, Choice) {
 	// Rough Idea: Resize both slices to the maximum length, then compare
 	// using that length
 
-	maxBits := x.announced
-	if z.announced > maxBits {
-		maxBits = z.announced
-	}
+	maxBits := z.maxAnnounced(x)
 	zLimbs := z.resizedLimbs(maxBits)
 	xLimbs := x.resizedLimbs(maxBits)
 
@@ -1210,10 +1213,7 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
 func (x *Nat) Coprime(y *Nat) Choice {
-	maxBits := x.announced
-	if y.announced > maxBits {
-		maxBits = y.announced
-	}
+	maxBits := x.maxAnnounced(y)
 	a := x.resizedLimbs(maxBits)
 	b := y.resizedLimbs(maxBits)
 
