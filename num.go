@@ -493,6 +493,9 @@ func invertModW(x Word) Word {
 //
 // This will also do integrity checks, namely that the modulus isn't empty or even
 func (m *Modulus) precomputeValues() {
+	announced := m.nat.TrueLen()
+	m.nat.announced = announced
+	m.nat.limbs = m.nat.resizedLimbs(announced)
 	if len(m.nat.limbs) < 1 {
 		panic("Modulus is empty")
 	}
@@ -510,10 +513,6 @@ func (m *Modulus) precomputeValues() {
 func ModulusFromUint64(x uint64) *Modulus {
 	var m Modulus
 	m.nat.SetUint64(x)
-	// edge case for 32 bit limb size
-	if _W < 64 && len(m.nat.limbs) > 1 && m.nat.limbs[1] == 0 {
-		m.nat.limbs = m.nat.limbs[:1]
-	}
 	m.precomputeValues()
 	return &m
 }
@@ -526,8 +525,6 @@ func ModulusFromBytes(bytes []byte) *Modulus {
 	var m Modulus
 	// TODO: You could allocate a smaller buffer to begin with, versus using the Nat method
 	m.nat.SetBytes(bytes)
-
-	m.nat.limbs = m.nat.limbs[:trueSize(m.nat.limbs)]
 	m.precomputeValues()
 	return &m
 }
@@ -539,11 +536,7 @@ func ModulusFromBytes(bytes []byte) *Modulus {
 // a stronger requirement than we usually have for Nat.
 func ModulusFromNat(nat *Nat) *Modulus {
 	var m Modulus
-	// We make a copy here, to avoid any aliasing between buffers
-	announced := nat.TrueLen()
-	m.nat.announced = announced
-	m.nat.limbs = m.nat.resizedLimbs(announced)
-	copy(m.nat.limbs, nat.limbs)
+	m.nat.SetNat(nat)
 	m.precomputeValues()
 	return &m
 }
@@ -557,7 +550,7 @@ func (m *Modulus) Bytes() []byte {
 //
 // Moduli are allowed to leak this value.
 func (m *Modulus) BitLen() int {
-	return len(m.nat.limbs)*_W - m.leading
+	return m.nat.announced
 }
 
 // Cmp compares two moduli, returning results for (>, =, <).
