@@ -157,6 +157,7 @@ func (z *Nat) ExpI(x *Nat, i *Int, m *Modulus) *Nat {
 	return z
 }
 
+// conditionally negate a slice of words based on two's complement
 func negateTwos(doit Choice, z []Word) {
 	if len(z) <= 0 {
 		return
@@ -171,11 +172,13 @@ func negateTwos(doit Choice, z []Word) {
 	}
 }
 
+// convert a slice to two's complement, using a sign, and writing the result to out
 func toTwos(sign Choice, abs []Word, out []Word) {
 	copy(out, abs)
 	negateTwos(sign, out)
 }
 
+// convert a slice from two's complement, writing it in place, and producing a sign
 func fromTwos(bits int, mut []Word) Choice {
 	if len(mut) <= 0 {
 		return 0
@@ -185,6 +188,11 @@ func fromTwos(bits int, mut []Word) Choice {
 	return sign
 }
 
+// Add calculates z <- x + y.
+//
+// The cap determines the number of bits to use for the absolute value of the result.
+//
+// If cap < 0, cap gets set to max(x.AnnouncedLen(), y.AnnouncedLen()) + 1
 func (z *Int) Add(x *Int, y *Int, cap int) *Int {
 	// Rough idea, convert x and y to two's complement representation, add, and
 	// then convert back, before truncating as necessary.
