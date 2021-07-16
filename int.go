@@ -14,7 +14,9 @@ type Int struct {
 	// number. We need to be careful around this edge case.
 	sign Choice
 	// The absolute value.
-	abs *Nat
+	//
+	// Not using a point is important, that way the zero value for Int is actually zero.
+	abs Nat
 }
 
 // SetBytes interprets a number in big-endian form, stores it in z, and returns z.
@@ -24,6 +26,17 @@ func (z *Int) SetBytes(data []byte) *Int {
 	z.sign = 0
 	z.abs.SetBytes(data)
 	return z
+}
+
+// Eq checks if this Int has the same value as another Int.
+//
+// Note that negative zero and positive zero are the same number.
+func (z *Int) Eq(x *Int) Choice {
+	zero := z.abs.EqZero()
+	// If this is zero, then any number as the same sign,
+	// otherwise, check that the signs aren't different
+	sameSign := zero | (1 ^ z.sign ^ x.sign)
+	return sameSign & z.abs.Eq(&x.abs)
 }
 
 // Neg calculates z <- -z.
