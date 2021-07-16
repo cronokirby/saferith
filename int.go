@@ -1,6 +1,8 @@
 package safenum
 
-import "math/bits"
+import (
+	"math/bits"
+)
 
 // Int represents a signed integer of arbitrary size.
 //
@@ -198,7 +200,8 @@ func (z *Int) Add(x *Int, y *Int, cap int) *Int {
 	addVV(xTwos, xTwos, yTwos)
 	// Convert back from two's complement
 	z.sign = fromTwos(cap, xTwos)
-	z.abs.limbs = z.abs.resizedLimbs(cap)
+	size = limbCount(cap)
+	z.abs.limbs = scratch[:size]
 	copy(z.abs.limbs, xTwos)
 	maskEnd(z.abs.limbs, cap)
 	z.abs.reduced = nil

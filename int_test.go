@@ -148,8 +148,8 @@ func TestCheckInRangeExamples(t *testing.T) {
 }
 
 func TestIntAddExamples(t *testing.T) {
-	x := new(Int).SetUint64(3)
-	y := new(Int).SetUint64(4).Neg(1)
+	x := new(Int).SetUint64(3).Resize(8)
+	y := new(Int).SetUint64(4).Neg(1).Resize(8)
 	expected := new(Int).SetUint64(1).Neg(1)
 	actual := new(Int).Add(x, y, -1)
 	if expected.Eq(actual) != 1 {
