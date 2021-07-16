@@ -154,10 +154,28 @@ func mulSubVVW(z, x []Word, y Word) (c Word) {
 // The capacity of a number is usually inherited through whatever method was used to
 // create the number in the first place.
 type Nat struct {
-	// Two natural numbers are not allowed to share the same slice. This allows
-	// us to use pointer comparison to check that Nats don't alias eachother
-	limbs   []Word
+	// The exact number of bits this number claims to have.
+	//
+	// This can differ from the actual number of bits needed to represent this number.
+	announced int
+	// If this is set, then the value of this Nat is in the range 0..reduced - 1.
+	//
+	// This value should get set based only on statically knowable things, like what
+	// functions have been called. This means that we will have plenty of false
+	// negatives, where a value is small enough, but we don't know statically
+	// that this is the case.
+	//
+	// Invariant: If reduced is set, then announced should match the announced size of
+	// this modulus.
 	reduced *Modulus
+	// The limbs representing this number, in little endian order.
+	//
+	// Invariant: The bits past announced will not be set. This includes when announced
+	// isn't a multiple of the limb size.
+	//
+	// Invariant: two Nats are not allowed to share the same slice.
+	// This allows us to use pointer comparison to check that Nats don't alias eachother
+	limbs []Word
 }
 
 // ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
