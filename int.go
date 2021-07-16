@@ -25,3 +25,11 @@ func (z *Int) SetBytes(data []byte) *Int {
 	z.abs.SetBytes(data)
 	return z
 }
+
+// Neg calculates z <- -z.
+//
+// The result has the same announced size.
+func Neg(z *Int) *Int {
+	z.sign ^= 1
+	return z
+}
