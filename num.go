@@ -543,8 +543,8 @@ func (z *Nat) SetNat(x *Nat) *Nat {
 	return z
 }
 
-// Truncate resizes z to a certain number of bits, returning z.
-func (z *Nat) Truncate(cap int) *Nat {
+// Resize resizes z to a certain number of bits, returning z.
+func (z *Nat) Resize(cap int) *Nat {
 	z.limbs = z.resizedLimbs(cap)
 	z.announced = cap
 	return z
