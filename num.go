@@ -383,8 +383,45 @@ func (z *Nat) Bytes() []byte {
 // convert a 4 bit value into an ASCII value in constant time
 func nibbletoASCII(nibble byte) byte {
 	w := Word(nibble)
-	value := ctIfElse(ctGt(w, 9), w-10+Word('A'), w+Word('0'))
+	value := ctIfElse(ctGt(w, 9), w-0xA+Word('A'), w+Word('0'))
 	return byte(value)
+}
+
+// convert an ASCII value into a 4 bit value, returning whether or not this value is valid.
+func nibbleFromASCII(ascii byte) (byte, Choice) {
+	w := Word(ascii)
+	inFirstRange := ctGt(w, Word('0')-1) & (1 ^ ctGt(w, Word('9')))
+	inSecondRange := ctGt(w, Word('A')-1) & (1 ^ ctGt(w, Word('F')))
+	valid := inFirstRange | inSecondRange
+	nibble := ctIfElse(inFirstRange, w-Word('0'), w-Word('A')+0xA)
+	return byte(nibble), valid
+}
+
+// SetHex modifies the value of z to hold a hex string, returning z
+//
+// The hex string must be in big endian order. If it contains characters
+// other than 0..9, A..F, the value of z will be undefined, and an error will
+// be returned.
+//
+// The value of the string shouldn't be leaked, except in the case where the string
+// contains invalid characters.
+func (z *Nat) SetHex(hex string) (*Nat, error) {
+	z.reduced = nil
+	z.announced = 4 * len(hex)
+	z.limbs = z.resizedLimbs(z.announced)
+	hexI := len(hex) - 1
+	for i := 0; i < len(z.limbs) && hexI >= 0; i++ {
+		z.limbs[i] = 0
+		for shift := 0; shift < _W && hexI >= 0; shift += 4 {
+			nibble, valid := nibbleFromASCII(byte(hex[hexI]))
+			if valid != 1 {
+				return nil, fmt.Errorf("invalid hex character: %c", hex[hexI])
+			}
+			z.limbs[i] |= Word(nibble) << shift
+			hexI--
+		}
+	}
+	return z, nil
 }
 
 // Hex converts this number into a hexadecimal string.
