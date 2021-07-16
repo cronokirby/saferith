@@ -674,8 +674,12 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 // we can achieve the same speed as the Mod method. This wouldn't be the case for
 // an arbitrary Nat.
 //
-// cap determines the number of bits to keep in the result.
+// cap determines the number of bits to keep in the result. If cap < 0, then
+// the number of bits will be x.AnnouncedLen() - m.BitLen() + 2
 func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
+	if cap < 0 {
+		cap = x.announced - m.nat.announced + 2
+	}
 	if len(x.limbs) < len(m.nat.limbs) || x.reduced == m {
 		z.limbs = z.resizedLimbs(cap)
 		for i := 0; i < len(z.limbs); i++ {
@@ -823,7 +827,12 @@ func (z *Nat) ModNeg(x *Nat, m *Modulus) *Nat {
 // Add calculates z <- x + y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
+//
+// If cap < 0, the capacity will be max(x.AnnouncedLen(), y.AnnouncedLen()) + 1
 func (z *Nat) Add(x *Nat, y *Nat, cap int) *Nat {
+	if cap < 0 {
+		cap = x.maxAnnounced(y) + 1
+	}
 	xLimbs := x.resizedLimbs(cap)
 	yLimbs := y.resizedLimbs(cap)
 	z.limbs = z.resizedLimbs(cap)
@@ -838,7 +847,12 @@ func (z *Nat) Add(x *Nat, y *Nat, cap int) *Nat {
 // Sub calculates z <- x - y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
+//
+// If cap < 0, the capacity will be max(x.AnnouncedLen(), y.AnnouncedLen())
 func (z *Nat) Sub(x *Nat, y *Nat, cap int) *Nat {
+	if cap < 0 {
+		cap = x.maxAnnounced(y)
+	}
 	xLimbs := x.resizedLimbs(cap)
 	yLimbs := y.resizedLimbs(cap)
 	z.limbs = z.resizedLimbs(cap)
@@ -942,7 +956,12 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 // Mul calculates z <- x * y, modulo 2^cap
 //
 // The capacity is given in bits, and also controls the size of the result.
+//
+// If cap < 0, the capacity will be x.AnnouncedLen() + y.AnnouncedLen()
 func (z *Nat) Mul(x *Nat, y *Nat, cap int) *Nat {
+	if cap < 0 {
+		cap = x.announced + y.announced
+	}
 	size := limbCount(cap)
 	// Since we neex to set z to zero, we have no choice to use a new buffer,
 	// because we allow z to alias either of the arguments
