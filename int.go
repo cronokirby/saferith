@@ -130,3 +130,13 @@ func (z *Int) CheckInRange(m *Modulus) Choice {
 
 	return absOk & signOk
 }
+
+// ExpI calculates z <- x^i mod m.
+//
+// This works with negative exponents, but requires x to be invertible mod m, of course.
+func (z *Nat) ExpI(x *Nat, i *Int, m *Modulus) *Nat {
+	z.Exp(x, &i.abs, m)
+	inverted := new(Nat).ModInverse(z, m)
+	z.CondAssign(i.sign, inverted)
+	return z
+}
