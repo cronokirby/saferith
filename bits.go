@@ -15,5 +15,5 @@ func limbMask(bits int) Word {
 	if remaining == 0 {
 		return allOnes
 	}
-	return 1 ^ (allOnes << remaining)
+	return ^(allOnes << remaining)
 }
