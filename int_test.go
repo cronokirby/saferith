@@ -12,7 +12,7 @@ func (*Int) Generate(r *rand.Rand, size int) reflect.Value {
 	r.Read(bytes)
 	i := new(Int).SetBytes(bytes)
 	if r.Int()&1 == 1 {
-		i.Neg(i)
+		i.Neg(1)
 	}
 	return reflect.ValueOf(i)
 }
@@ -55,10 +55,9 @@ func TestIntMulZeroIsZero(t *testing.T) {
 }
 
 func testIntMulNegativeOneIsNeg(x *Int) bool {
-	minusOne := new(Int).SetUint64(1)
-	minusOne.Neg(minusOne)
+	minusOne := new(Int).SetUint64(1).Neg(1)
 
-	way1 := new(Int).Neg(x)
+	way1 := new(Int).SetInt(x).Neg(1)
 	way2 := new(Int).Mul(x, minusOne, -1)
 	return way1.Eq(way2) == 1
 }
@@ -71,7 +70,7 @@ func TestIntMulNegativeOneIsNeg(t *testing.T) {
 }
 
 func testIntModAddNegReturnsZero(x *Int, m Modulus) bool {
-	a := new(Int).Neg(x).Mod(&m)
+	a := new(Int).SetInt(x).Neg(1).Mod(&m)
 	b := x.Mod(&m)
 	return b.ModAdd(a, b, &m).EqZero() == 1
 }
@@ -100,10 +99,60 @@ func TestIntModRoundtrip(t *testing.T) {
 	}
 }
 
+func testIntAddNegZero(i *Int) bool {
+	zero := new(Int)
+	neg := new(Int).SetInt(i).Neg(1)
+	shouldBeZero := new(Int).Add(i, neg, -1)
+	return shouldBeZero.Eq(zero) == 1
+}
+
+func TestIntAddNegZero(t *testing.T) {
+	err := quick.Check(testIntAddNegZero, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testIntAddCommutative(x *Int, y *Int) bool {
+	way1 := new(Int).Add(x, y, -1)
+	way2 := new(Int).Add(x, y, -1)
+	return way1.Eq(way2) == 1
+}
+
+func TestIntAddCommutative(t *testing.T) {
+	err := quick.Check(testIntAddCommutative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testIntAddZeroIdentity(x *Int) bool {
+	zero := new(Int)
+	shouldBeX := new(Int).Add(x, zero, -1)
+	return shouldBeX.Eq(x) == 1
+}
+
+func TestIntAddZeroIdentity(t *testing.T) {
+	err := quick.Check(testIntAddZeroIdentity, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestCheckInRangeExamples(t *testing.T) {
 	x := new(Int).SetUint64(0)
 	m := ModulusFromUint64(13)
 	if x.CheckInRange(m) != 1 {
 		t.Errorf("expected zero to be in range of modulus")
+	}
+}
+
+func TestIntAddExamples(t *testing.T) {
+	x := new(Int).SetUint64(3)
+	y := new(Int).SetUint64(4).Neg(1)
+	expected := new(Int).SetUint64(1).Neg(1)
+	actual := new(Int).Add(x, y, -1)
+	if expected.Eq(actual) != 1 {
+		t.Errorf("%+v != %+v", expected, actual)
 	}
 }
