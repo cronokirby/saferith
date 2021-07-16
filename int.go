@@ -41,6 +41,13 @@ func (z *Int) SetUint64(x uint64) *Int {
 	return z
 }
 
+// SetNat will set the absolute value of z to x, and the sign to zero, returning z.
+func (z *Int) SetNat(x *Nat) *Int {
+	z.sign = 0
+	z.abs.SetNat(x)
+	return z
+}
+
 // Resize adjust the announced size of this number, possibly truncating the absolute value.
 func (z *Int) Resize(cap int) *Int {
 	z.abs.Resize(cap)
