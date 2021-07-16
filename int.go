@@ -28,6 +28,15 @@ func (z *Int) SetBytes(data []byte) *Int {
 	return z
 }
 
+// String formats this number as a signed hex string.
+//
+// This isn't a format that Int knows how to parse. This function exists mainly
+// to help debugging, and whatnot.
+func (z *Int) String() string {
+	sign := ctIfElse(z.sign, Word('-'), Word('+'))
+	return string(rune(sign)) + z.abs.String()
+}
+
 // Eq checks if this Int has the same value as another Int.
 //
 // Note that negative zero and positive zero are the same number.
