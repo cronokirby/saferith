@@ -37,6 +37,12 @@ func (z *Int) SetUint64(x uint64) *Int {
 	return z
 }
 
+// Resize adjust the announced size of this number, possibly truncating the absolute value.
+func (z *Int) Resize(cap int) *Int {
+	z.abs.Resize(cap)
+	return z
+}
+
 // String formats this number as a signed hex string.
 //
 // This isn't a format that Int knows how to parse. This function exists mainly
