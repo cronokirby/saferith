@@ -84,6 +84,22 @@ func (z *Int) IsNegative() Choice {
 	return z.sign
 }
 
+// AnnouncedLen returns the announced size of this int's absolute value.
+//
+// See Nat.AnnouncedLen
+func (z *Int) AnnouncedLen() int {
+	return z.abs.AnnouncedLen()
+}
+
+// TrueLen returns the actual number of bits need to represent this int's absolute value.
+//
+// This leaks this value.
+//
+// See Nat.TrueLen
+func (z *Int) TrueLen() int {
+	return z.abs.TrueLen()
+}
+
 // Neg calculates z <- -x.
 //
 // The result has the same announced size.
