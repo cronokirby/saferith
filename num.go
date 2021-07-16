@@ -32,7 +32,7 @@ func ctEq(x, y Word) Choice {
 	// For any q != 0, either the MSB of q, or the MSB of -q is 1.
 	// We can thus or those together, and check the top bit. When q is zero,
 	// that means that x and y are equal, so we negate that top bit.
-	return 1 ^ Choice((q|-q)>>63)
+	return 1 ^ Choice((q|-q)>>(_W-1))
 }
 
 // ctGt checks x > y, returning 1 or 0
