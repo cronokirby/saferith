@@ -63,6 +63,11 @@ func (z *Int) Eq(x *Int) Choice {
 	return sameSign & z.abs.Eq(&x.abs)
 }
 
+// Abs returns the absolute value of this Int.
+func (z *Int) Abs() *Nat {
+	return new(Nat).SetNat(&z.abs)
+}
+
 // Neg calculates z <- -x.
 //
 // The result has the same announced size.
