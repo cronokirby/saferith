@@ -42,7 +42,7 @@ func (z *Int) Eq(x *Int) Choice {
 // Neg calculates z <- -z.
 //
 // The result has the same announced size.
-func Neg(z *Int) *Int {
+func (z *Int) Neg() *Int {
 	z.sign ^= 1
 	return z
 }
