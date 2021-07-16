@@ -1036,4 +1036,9 @@ func TestHexExamples(t *testing.T) {
 	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
+	x.SetHex("0123456789ABCDEF")
+	expectedNat := new(Nat).SetUint64(0x0123456789ABCDEF)
+	if expectedNat.Eq(x) != 1 {
+		t.Errorf("%+v != %+v", expectedNat, x)
+	}
 }
