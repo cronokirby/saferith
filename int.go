@@ -48,10 +48,11 @@ func (z *Int) Eq(x *Int) Choice {
 	return sameSign & z.abs.Eq(&x.abs)
 }
 
-// Neg calculates z <- -z.
+// Neg calculates z <- -x.
 //
 // The result has the same announced size.
-func (z *Int) Neg() *Int {
-	z.sign ^= 1
+func (z *Int) Neg(x *Int) *Int {
+	z.sign = 1 ^ x.sign
+	z.abs.SetNat(&x.abs)
 	return z
 }
