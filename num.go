@@ -179,6 +179,25 @@ type Nat struct {
 	limbs []Word
 }
 
+// checkInvariants does some internal sanity checks.
+//
+// This is useful for tests.
+func (z *Nat) checkInvariants() bool {
+	if z.reduced != nil && z.announced != z.reduced.nat.announced {
+		return false
+	}
+	if len(z.limbs) != limbCount(z.announced) {
+		return false
+	}
+	if len(z.limbs) > 0 {
+		lastLimb := z.limbs[len(z.limbs)-1]
+		if lastLimb != lastLimb&limbMask(z.announced) {
+			return false
+		}
+	}
+	return true
+}
+
 // ensureLimbCapacity makes sure that a Nat has capacity for a certain number of limbs
 //
 // This will modify the slice contained inside the natural, but won't change the size of
