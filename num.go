@@ -1,7 +1,6 @@
 package safenum
 
 import (
-	"fmt"
 	"math/big"
 	"math/bits"
 )
@@ -250,7 +249,7 @@ func trueSize(limbs []Word) int {
 
 // AnnouncedLen returns the number of bits this number is publicly known to have
 func (z *Nat) AnnouncedLen() int {
-	return len(z.limbs) * _W
+	return z.announced
 }
 
 // leadingZeros calculates the number of leading zero bits in x.
@@ -322,33 +321,6 @@ Outer:
 	return buf
 }
 
-// extendFront pads the front of a slice to a certain size
-//
-// LEAK: the length of the buffer, size
-func extendFront(buf []byte, size int) []byte {
-	// LEAK: the length of the buffer
-	if len(buf) >= size {
-		return buf
-	}
-
-	shift := size - len(buf)
-	// LEAK: the capacity of the buffer
-	// OK: assuming the capacity of the buffer is related to the length,
-	// and the length is ok to leak
-	if cap(buf) < size {
-		newBuf := make([]byte, size)
-		copy(newBuf[shift:], buf)
-		return newBuf
-	}
-
-	newBuf := buf[:size]
-	copy(newBuf[shift:], buf)
-	for i := 0; i < shift; i++ {
-		newBuf[i] = 0
-	}
-	return newBuf
-}
-
 // SetBytes interprets a number in big-endian format, stores it in z, and returns z.
 //
 // The exact length of the buffer must be public information! This length also dictates
@@ -373,7 +345,7 @@ func (z *Nat) SetBytes(buf []byte) *Nat {
 //
 // This will always fill the output byte slice based on the announced length of this Nat.
 func (z *Nat) Bytes() []byte {
-	length := len(z.limbs) * _S
+	length := (z.announced + 7) / 8
 	out := make([]byte, length)
 	return z.FillBytes(out)
 }
@@ -775,16 +747,12 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 }
 
 func (z *Nat) ModSub(x *Nat, y *Nat, m *Modulus) *Nat {
-	fmt.Println("ModSub", x, y, m)
 	var xModM, yModM Nat
 	// First reduce x and y mod m
 	xModM.Mod(x, m)
 	yModM.Mod(y, m)
 
 	size := len(m.nat.limbs)
-	fmt.Println("len(m.nat.limbs)", len(m.nat.limbs))
-	fmt.Println("len(xModM.limbs)", len(xModM.limbs))
-	fmt.Println("len(yModM.limbs)", len(yModM.limbs))
 	scratch := z.resizedLimbs(_W * 2 * size)
 	z.limbs = scratch[:size]
 	addResult := scratch[size:]

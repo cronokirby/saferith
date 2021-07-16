@@ -2,7 +2,6 @@ package safenum
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -247,13 +246,9 @@ func TestModAddAssociative(t *testing.T) {
 }
 
 func testModAddModSubInverse(a Nat, b Nat, m Modulus) bool {
-	fmt.Println("a", a, "b", b)
 	var c Nat
-	fmt.Println("c1", c)
 	c.ModAdd(&a, &b, &m)
-	fmt.Println("c2", c)
 	c.ModSub(&c, &b, &m)
-	fmt.Println("c3", c)
 	expected := new(Nat)
 	expected.Mod(&a, &m)
 	return c.Eq(expected) == 1
