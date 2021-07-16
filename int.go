@@ -79,6 +79,11 @@ func (z *Int) Abs() *Nat {
 	return new(Nat).SetNat(&z.abs)
 }
 
+// IsNegative checks if this value is negative
+func (z *Int) IsNegative() Choice {
+	return z.sign
+}
+
 // Neg calculates z <- -x.
 //
 // The result has the same announced size.
