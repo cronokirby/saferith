@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"fmt"
 	"math/big"
 	"math/bits"
 )
@@ -86,13 +87,13 @@ func ctCondSwap(v Choice, a, b []Word) {
 //
 // The announced size of the result will be the largest size between z and x.
 func (z *Nat) CondAssign(yes Choice, x *Nat) *Nat {
-	maxSize := len(x.limbs)
-	if len(z.limbs) > maxSize {
-		maxSize = len(z.limbs)
+	maxBits := x.announced
+	if z.announced > maxBits {
+		maxBits = z.announced
 	}
 
-	xLimbs := x.resizedLimbs(maxSize)
-	z.limbs = z.resizedLimbs(maxSize)
+	xLimbs := x.resizedLimbs(maxBits)
+	z.limbs = z.resizedLimbs(maxBits)
 
 	ctCondCopy(yes, z.limbs, xLimbs)
 
@@ -101,6 +102,7 @@ func (z *Nat) CondAssign(yes Choice, x *Nat) *Nat {
 	if z.reduced != x.reduced {
 		z.reduced = nil
 	}
+	z.announced = maxBits
 
 	return z
 }
@@ -193,18 +195,30 @@ func (z *Nat) ensureLimbCapacity(size int) {
 	}
 }
 
-// resizedLimbs returns a slice of limbs with size lengths
+// resizedLimbs returns a new slice of limbs accomodating a number of bits.
 //
-// LEAK: the current number of limbs, and size
+// This will clear out the end of the slice as necessary.
+//
+// LEAK: the current number of limbs, and bits
 // OK: both are public
-func (z *Nat) resizedLimbs(size int) []Word {
+func (z *Nat) resizedLimbs(bits int) []Word {
+	size := limbCount(bits)
 	z.ensureLimbCapacity(size)
 	res := z.limbs[:size]
 	// Make sure that the expansion (if any) is cleared
 	for i := len(z.limbs); i < size; i++ {
 		res[i] = 0
 	}
+	maskEnd(res, bits)
 	return res
+}
+
+// maskEnd applies the correct bit mask to some limbs
+func maskEnd(limbs []Word, bits int) {
+	if len(limbs) <= 0 {
+		return
+	}
+	limbs[len(limbs)-1] &= limbMask(bits)
 }
 
 // unaliasedLimbs returns a set of limbs for z, such that they do not alias those of x
@@ -342,25 +356,14 @@ func extendFront(buf []byte, size int) []byte {
 // involving that number.
 func (z *Nat) SetBytes(buf []byte) *Nat {
 	z.reduced = nil
-	// We pad the front so that we have a multiple of _S
-	// Padding the front is adding extra zeros to the BE representation
-	necessary := (len(buf) + _S - 1) &^ (_S - 1)
-	// LEAK: the size of buf
-	// OK: this is public information
-	buf = extendFront(buf, necessary)
-	limbCount := necessary / _S
-	// LEAK: limbCount
-	// OK: this is derived from the length of buf, which is public
-	z.limbs = z.resizedLimbs(limbCount)
-	j := necessary
-	// LEAK: The number of limbs
-	// OK: This is public information
-	for i := 0; i < limbCount; i++ {
+	z.announced = 8 * len(buf)
+	z.limbs = z.resizedLimbs(z.announced)
+	bufI := len(buf) - 1
+	for i := 0; i < len(z.limbs) && bufI >= 0; i++ {
 		z.limbs[i] = 0
-		j -= _S
-		for k := 0; k < _S; k++ {
-			z.limbs[i] <<= 8
-			z.limbs[i] |= Word(buf[j+k])
+		for shift := 0; shift < _W && bufI >= 0; shift += 8 {
+			z.limbs[i] |= Word(buf[bufI]) << shift
+			bufI--
 		}
 	}
 	return z
@@ -409,8 +412,8 @@ func (z *Nat) Big() *big.Int {
 //
 // The size parameter is used to pad or truncate z to a certain number of bits.
 func (z *Nat) SetBig(x *big.Int, size int) *Nat {
-	limbCount := int((size + _W - 1) / _W)
-	z.limbs = z.resizedLimbs(limbCount)
+	z.announced = size
+	z.limbs = z.resizedLimbs(size)
 	bigLimbs := x.Bits()
 	for i := 0; i < len(z.limbs) && i < len(bigLimbs); i++ {
 		z.limbs[i] = Word(bigLimbs[i])
@@ -423,21 +426,11 @@ func (z *Nat) SetBig(x *big.Int, size int) *Nat {
 // This will have the exact same capacity as a 64 bit number
 func (z *Nat) SetUint64(x uint64) *Nat {
 	z.reduced = nil
-	// LEAK: Whether or not _W == 64
-	// OK: This is known in advance based on the architecture
-	if _W == 64 {
-		z.limbs = z.resizedLimbs(1)
-		z.limbs[0] = Word(x)
-	} else {
-		// This works since _W is a power of 2
-		limbCount := 64 / _W
-		z.limbs = z.resizedLimbs(limbCount)
-		// LEAK: limbCount
-		// OK: This is public
-		for i := 0; i < limbCount; i++ {
-			z.limbs[i] = Word(x)
-			x >>= _W
-		}
+	z.announced = 64
+	z.limbs = z.resizedLimbs(_W)
+	for i := 0; i < len(z.limbs); i++ {
+		z.limbs[i] = Word(x)
+		x >>= _W
 	}
 	return z
 }
@@ -446,27 +439,21 @@ func (z *Nat) SetUint64(x uint64) *Nat {
 //
 // The behavior of this function is undefined if the announced length of z is > 64.
 func (z *Nat) Uint64() uint64 {
-	if len(z.limbs) < 1 {
-		return 0
+	var ret uint64
+	for i := len(z.limbs) - 1; i >= 0; i-- {
+		ret = (ret << _W) | uint64(z.limbs[i])
 	}
-	if _W == 64 {
-		return uint64(z.limbs[0])
-	} else {
-		var ret uint64
-		for i := len(z.limbs) - 1; i >= 0; i-- {
-			ret = (ret << _W) | uint64(z.limbs[i])
-		}
-		return ret
-	}
+	return ret
 }
 
 // SetNat copies the value of x into z
 //
 // z will have the same announced length as x.
 func (z *Nat) SetNat(x *Nat) *Nat {
-	z.limbs = z.resizedLimbs(len(x.limbs))
+	z.limbs = z.resizedLimbs(x.announced)
 	copy(z.limbs, x.limbs)
 	z.reduced = x.reduced
+	z.announced = x.announced
 	return z
 }
 
@@ -551,8 +538,9 @@ func ModulusFromBytes(bytes []byte) *Modulus {
 func ModulusFromNat(nat *Nat) *Modulus {
 	var m Modulus
 	// We make a copy here, to avoid any aliasing between buffers
-	size := trueSize(nat.limbs)
-	m.nat.limbs = m.nat.resizedLimbs(int(size))
+	announced := nat.TrueLen()
+	m.nat.announced = announced
+	m.nat.limbs = m.nat.resizedLimbs(announced)
 	copy(m.nat.limbs, nat.limbs)
 	m.precomputeValues()
 	return &m
@@ -644,15 +632,12 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 // The capacity of the resulting number matches the capacity of the modulus.
 func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	if x.reduced == m {
-		xLimbs := x.unaliasedLimbs(z)
-		z.limbs = z.resizedLimbs(len(m.nat.limbs))
-		z.reduced = m
-		copy(z.limbs, xLimbs)
+		z.SetNat(x)
 		return z
 	}
 	size := len(m.nat.limbs)
 	xLimbs := x.unaliasedLimbs(z)
-	z.limbs = z.resizedLimbs(2 * size)
+	z.limbs = z.resizedLimbs(2 * _W * size)
 	for i := 0; i < len(z.limbs); i++ {
 		z.limbs[i] = 0
 	}
@@ -675,7 +660,8 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 	for ; i >= 0; i-- {
 		shiftAddIn(z.limbs[:size], z.limbs[size:], xLimbs[i], m)
 	}
-	z.limbs = z.limbs[:size]
+	z.limbs = z.resizedLimbs(m.nat.announced)
+	z.announced = m.nat.announced
 	z.reduced = m
 	return z
 }
@@ -689,19 +675,21 @@ func (z *Nat) Mod(x *Nat, m *Modulus) *Nat {
 // cap determines the number of bits to keep in the result.
 func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 	if len(x.limbs) < len(m.nat.limbs) || x.reduced == m {
-		z.limbs = z.resizedLimbs(int((cap + _W - 1) / _W))
+		z.limbs = z.resizedLimbs(cap)
 		for i := 0; i < len(z.limbs); i++ {
 			z.limbs[i] = 0
 		}
+		z.announced = cap
+		z.reduced = nil
 		return z
 	}
 
-	size := len(m.nat.limbs)
+	size := limbCount(m.nat.announced)
 
 	xLimbs := x.unaliasedLimbs(z)
 
 	// Enough for 2 buffers the size of m, and to store the full quotient
-	z.limbs = z.resizedLimbs(2*size + len(xLimbs))
+	z.limbs = z.resizedLimbs(_W * (2*size + len(xLimbs)))
 
 	remainder := z.limbs[:size]
 	scratch := z.limbs[size : 2*size]
@@ -732,22 +720,14 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 		qI++
 	}
 
-	limbCount := (cap + _W - 1) / _W
-
-	z.limbs = z.resizedLimbs(limbCount)
+	z.limbs = z.resizedLimbs(cap)
 	// First, reverse all the limbs we want, from the last part of the buffer we used.
 	for i := 0; i < len(z.limbs) && i < len(quotientBE); i++ {
 		z.limbs[i] = quotientBE[qI-i-1]
 	}
-	// Now, we need to truncate the last limb
-	extraBits := _W*limbCount - cap
-	bitsToKeep := _W - extraBits
-	mask := ^(^Word(0) << bitsToKeep)
-	// LEAK: the size of z (since we're making an extra access at the end)
-	// OK: this is public information, since cap is public
-	z.limbs[len(z.limbs)-1] &= mask
-
+	maskEnd(z.limbs, cap)
 	z.reduced = nil
+	z.announced = cap
 	return z
 }
 
@@ -764,8 +744,10 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	yModM.Mod(y, m)
 
 	// The only thing we have to resize is z, everything else has m's length
-	size := len(m.nat.limbs)
-	scratch := z.resizedLimbs(2 * size)
+	size := limbCount(m.nat.announced)
+	scratch := z.resizedLimbs(2 * _W * size)
+	// This might hold some more bits, but masking isn't necessary, since the
+	// result will be < m.
 	z.limbs = scratch[:size]
 	subResult := scratch[size:]
 
@@ -788,17 +770,22 @@ func (z *Nat) ModAdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	selectSub := ctEq(addCarry, subCarry)
 	ctCondCopy(selectSub, z.limbs[:size], subResult)
 	z.reduced = m
+	z.announced = m.nat.announced
 	return z
 }
 
 func (z *Nat) ModSub(x *Nat, y *Nat, m *Modulus) *Nat {
+	fmt.Println("ModSub", x, y, m)
 	var xModM, yModM Nat
 	// First reduce x and y mod m
 	xModM.Mod(x, m)
 	yModM.Mod(y, m)
 
 	size := len(m.nat.limbs)
-	scratch := z.resizedLimbs(2 * size)
+	fmt.Println("len(m.nat.limbs)", len(m.nat.limbs))
+	fmt.Println("len(xModM.limbs)", len(xModM.limbs))
+	fmt.Println("len(yModM.limbs)", len(yModM.limbs))
+	scratch := z.resizedLimbs(_W * 2 * size)
 	z.limbs = scratch[:size]
 	addResult := scratch[size:]
 
@@ -807,6 +794,7 @@ func (z *Nat) ModSub(x *Nat, y *Nat, m *Modulus) *Nat {
 	addVV(addResult, z.limbs, m.nat.limbs)
 	ctCondCopy(underflow, z.limbs, addResult)
 	z.reduced = m
+	z.announced = m.nat.announced
 	return z
 }
 
@@ -816,7 +804,7 @@ func (z *Nat) ModNeg(x *Nat, m *Modulus) *Nat {
 	z.Mod(x, m)
 
 	size := len(m.nat.limbs)
-	scratch := z.resizedLimbs(2 * size)
+	scratch := z.resizedLimbs(_W * 2 * size)
 	z.limbs = scratch[:size]
 	zero := scratch[size:]
 	for i := 0; i < len(zero); i++ {
@@ -830,6 +818,7 @@ func (z *Nat) ModNeg(x *Nat, m *Modulus) *Nat {
 	ctCondCopy(underflow, z.limbs, zero)
 
 	z.reduced = m
+	z.announced = m.nat.announced
 	return z
 }
 
@@ -837,21 +826,13 @@ func (z *Nat) ModNeg(x *Nat, m *Modulus) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Add(x *Nat, y *Nat, cap int) *Nat {
-	limbCount := int((cap + _W - 1) / _W)
-	xLimbs := x.resizedLimbs(limbCount)
-	yLimbs := y.resizedLimbs(limbCount)
-	z.limbs = z.resizedLimbs(limbCount)
+	xLimbs := x.resizedLimbs(cap)
+	yLimbs := y.resizedLimbs(cap)
+	z.limbs = z.resizedLimbs(cap)
 	addVV(z.limbs, xLimbs, yLimbs)
-	// Now, we need to truncate the last limb
-	bitsToKeep := cap % _W
-	// Checking a function of the cap is ok
-	if bitsToKeep == 0 {
-		return z
-	}
-	mask := ^(^Word(0) << bitsToKeep)
-	// LEAK: the size of z (since we're making an extra access at the end)
-	// OK: this is public information, since cap is public
-	z.limbs[len(z.limbs)-1] &= mask
+	// Mask off the final bits
+	z.limbs = z.resizedLimbs(cap)
+	z.announced = cap
 	z.reduced = nil
 	return z
 }
@@ -860,21 +841,13 @@ func (z *Nat) Add(x *Nat, y *Nat, cap int) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Sub(x *Nat, y *Nat, cap int) *Nat {
-	limbCount := int((cap + _W - 1) / _W)
-	xLimbs := x.resizedLimbs(limbCount)
-	yLimbs := y.resizedLimbs(limbCount)
-	z.limbs = z.resizedLimbs(limbCount)
+	xLimbs := x.resizedLimbs(cap)
+	yLimbs := y.resizedLimbs(cap)
+	z.limbs = z.resizedLimbs(cap)
 	subVV(z.limbs, xLimbs, yLimbs)
-	// Now, we need to truncate the last limb
-	bitsToKeep := cap % _W
-	// Checking a function of the cap is ok
-	if bitsToKeep == 0 {
-		return z
-	}
-	mask := ^(^Word(0) << bitsToKeep)
-	// LEAK: the size of z (since we're making an extra access at the end)
-	// OK: this is public information, since cap is public
-	z.limbs[len(z.limbs)-1] &= mask
+	// Mask off the final bits
+	z.limbs = z.resizedLimbs(cap)
+	z.announced = cap
 	z.reduced = nil
 	return z
 }
@@ -972,26 +945,20 @@ func (z *Nat) ModMul(x *Nat, y *Nat, m *Modulus) *Nat {
 //
 // The capacity is given in bits, and also controls the size of the result.
 func (z *Nat) Mul(x *Nat, y *Nat, cap int) *Nat {
-	limbCount := int((cap + _W - 1) / _W)
+	size := limbCount(cap)
 	// Since we neex to set z to zero, we have no choice to use a new buffer,
 	// because we allow z to alias either of the arguments
-	zLimbs := make([]Word, limbCount)
-	xLimbs := x.resizedLimbs(limbCount)
-	yLimbs := y.resizedLimbs(limbCount)
+	zLimbs := make([]Word, size)
+	xLimbs := x.resizedLimbs(cap)
+	yLimbs := y.resizedLimbs(cap)
 	// LEAK: limbCount
 	// OK: the capacity is public, or should be
-	for i := 0; i < limbCount; i++ {
+	for i := 0; i < size; i++ {
 		addMulVVW(zLimbs[i:], xLimbs, yLimbs[i])
 	}
-	// Now, we need to truncate the last limb
-	extraBits := _W*limbCount - cap
-	bitsToKeep := _W - extraBits
-	mask := ^(^Word(0) << bitsToKeep)
-	// LEAK: the size of z (since we're making an extra access at the end)
-	// OK: this is public information, since cap is public
-	zLimbs[len(zLimbs)-1] &= mask
-	// Now we can write over
 	z.limbs = zLimbs
+	z.limbs = z.resizedLimbs(cap)
+	z.announced = cap
 	z.reduced = nil
 	return z
 }
@@ -1002,7 +969,7 @@ func (z *Nat) expOdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	xModM := new(Nat).Mod(x, m)
 	yLimbs := y.unaliasedLimbs(z)
 
-	scratch := z.resizedLimbs(18 * size)
+	scratch := z.resizedLimbs(_W * 18 * size)
 	scratch1 := scratch[16*size : 17*size]
 	scratch2 := scratch[17*size:]
 
@@ -1047,6 +1014,7 @@ func (z *Nat) expOdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	scratch2[0] = 1
 	montgomeryMul(z.limbs, scratch2, z.limbs, scratch1, m)
 	z.reduced = m
+	z.announced = m.nat.announced
 	return z
 }
 
@@ -1068,7 +1036,6 @@ func (z *Nat) expEven(x *Nat, y *Nat, m *Modulus) *Nat {
 			ctCondCopy(sel, z.limbs, scratch.limbs)
 		}
 	}
-	z.reduced = m
 	return z
 }
 
@@ -1123,15 +1090,12 @@ func (z *Nat) Cmp(x *Nat) (Choice, Choice, Choice) {
 	// Rough Idea: Resize both slices to the maximum length, then compare
 	// using that length
 
-	// LEAK: z's length, x's length, the maximum
-	// OK: These should be public information
-	size := len(x.limbs)
-	zLen := len(z.limbs)
-	if zLen > size {
-		size = zLen
+	maxBits := x.announced
+	if z.announced > maxBits {
+		maxBits = z.announced
 	}
-	zLimbs := z.resizedLimbs(size)
-	xLimbs := x.resizedLimbs(size)
+	zLimbs := z.resizedLimbs(maxBits)
+	xLimbs := x.resizedLimbs(maxBits)
 
 	eq := Choice(1)
 	geq := Choice(0)
@@ -1179,7 +1143,7 @@ func (z *Nat) EqZero() Choice {
 func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 	size := len(m)
 
-	scratch := z.resizedLimbs(8 * size)
+	scratch := z.resizedLimbs(_W * 8 * size)
 	v := scratch[:size]
 	u := scratch[size : 2*size]
 	b := scratch[2*size : 3*size]
@@ -1253,7 +1217,7 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
-func (x *Nat) Coprime(y *Nat) int {
+func (x *Nat) Coprime(y *Nat) Choice {
 	size := len(x.limbs)
 	if len(y.limbs) > size {
 		size = len(y.limbs)
@@ -1274,7 +1238,7 @@ func (x *Nat) Coprime(y *Nat) int {
 	bOdd := Choice(b[0] & 1)
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
 	// otherwise, both are even, so we want to return false anyways.
-	return int((aOdd | bOdd) & cmpEq(d, one))
+	return (aOdd | bOdd) & cmpEq(d, one)
 }
 
 // modInverse calculates the inverse of a reduced x modulo m
@@ -1285,13 +1249,13 @@ func (x *Nat) Coprime(y *Nat) int {
 //
 // We also assume that x is already reduced modulo m
 func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
-	size := len(m.limbs)
 	// Make sure that z doesn't alias either of m or x
 	xLimbs := x.unaliasedLimbs(z)
 	mLimbs := m.unaliasedLimbs(z)
 	_, v := z.eGCD(xLimbs, mLimbs)
-	z.limbs = z.resizedLimbs(size)
+	z.limbs = z.resizedLimbs(m.announced)
 	copy(z.limbs, v)
+	maskEnd(z.limbs, m.announced)
 	return z
 }
 
@@ -1303,10 +1267,13 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	z.Mod(x, m)
 	if m.even {
-		return z.modInverseEven(x, m)
+		z.modInverseEven(x, m)
 	} else {
-		return z.modInverse(z, &m.nat)
+		z.modInverse(z, &m.nat)
 	}
+	z.reduced = m
+	z.announced = m.nat.announced
+	return z
 }
 
 // divDouble divides x by d, outputtting the quotient in out, and a remainder
@@ -1402,8 +1369,8 @@ func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	}
 	ctCondCopy(1^inverseZero, newZ.limbs[:size], newZ.limbs[size:])
 
-	z.limbs = newZ.limbs[:size]
-	z.reduced = nil
+	z.limbs = newZ.limbs
+	z.limbs = z.resizedLimbs(m.nat.announced)
 	return z
 }
 
@@ -1476,7 +1443,7 @@ func (z *Nat) ModSqrt(x *Nat, p *Modulus) *Nat {
 	if len(p.nat.limbs) == 0 {
 		panic("Can't take square root mod 0")
 	}
-	if p.nat.limbs[0]&0b11 == 3 {
+	if p.nat.limbs[0]&0b11 == 0b11 {
 		return z.modSqrt3Mod4(x, p)
 	}
 	return z.tonelliShanks(x, p)
