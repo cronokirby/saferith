@@ -1,5 +1,7 @@
 package safenum
 
+import "math/bits"
+
 // Int represents a signed integer of arbitrary size.
 //
 // Similarly to Nat, each Int comes along with an announced size, representing
@@ -71,8 +73,13 @@ func (z *Int) Abs() *Nat {
 // Neg calculates z <- -x.
 //
 // The result has the same announced size.
-func (z *Int) Neg(x *Int) *Int {
-	z.sign = 1 ^ x.sign
+func (z *Int) Neg(doit Choice) *Int {
+	z.sign ^= doit
+	return z
+}
+
+func (z *Int) SetInt(x *Int) *Int {
+	z.sign = x.sign
 	z.abs.SetNat(&x.abs)
 	return z
 }
@@ -138,5 +145,64 @@ func (z *Nat) ExpI(x *Nat, i *Int, m *Modulus) *Nat {
 	z.Exp(x, &i.abs, m)
 	inverted := new(Nat).ModInverse(z, m)
 	z.CondAssign(i.sign, inverted)
+	return z
+}
+
+func negateTwos(doit Choice, z []Word) {
+	if len(z) <= 0 {
+		return
+	}
+	flip := ctIfElse(doit, ^Word(0), 0)
+	add := ctIfElse(doit, 1, 0)
+	zi, carry := bits.Add(uint(flip^z[0]), uint(add), 0)
+	z[0] = Word(zi)
+	for i := 1; i < len(z); i++ {
+		zi, carry = bits.Add(uint(flip^z[i]), 0, carry)
+		z[i] = Word(zi)
+	}
+}
+
+func toTwos(sign Choice, abs []Word, out []Word) {
+	copy(out, abs)
+	negateTwos(sign, out)
+}
+
+func fromTwos(bits int, mut []Word) Choice {
+	if len(mut) <= 0 {
+		return 0
+	}
+	sign := Choice(mut[len(mut)-1] >> (_W - 1))
+	negateTwos(sign, mut)
+	return sign
+}
+
+func (z *Int) Add(x *Int, y *Int, cap int) *Int {
+	// Rough idea, convert x and y to two's complement representation, add, and
+	// then convert back, before truncating as necessary.
+	if cap < 0 {
+		cap = x.abs.maxAnnounced(&y.abs) + 1
+	}
+
+	xLimbs := x.abs.unaliasedLimbs(&z.abs)
+	yLimbs := y.abs.unaliasedLimbs(&z.abs)
+
+	// We need an extra bit for the sign
+	size := limbCount(cap + 1)
+	scratch := z.abs.resizedLimbs(_W * 2 * size)
+	// Convert both to two's complement
+	xTwos := scratch[:size]
+	yTwos := scratch[size:]
+	toTwos(x.sign, xLimbs, xTwos)
+	toTwos(y.sign, yLimbs, yTwos)
+	// The addition will now produce the right result
+	addVV(xTwos, xTwos, yTwos)
+	// Convert back from two's complement
+	z.sign = fromTwos(cap, xTwos)
+	z.abs.limbs = z.abs.resizedLimbs(cap)
+	copy(z.abs.limbs, xTwos)
+	maskEnd(z.abs.limbs, cap)
+	z.abs.reduced = nil
+	z.abs.announced = cap
+
 	return z
 }
