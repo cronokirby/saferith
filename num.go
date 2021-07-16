@@ -183,17 +183,14 @@ type Nat struct {
 // This is useful for tests.
 func (z *Nat) checkInvariants() bool {
 	if z.reduced != nil && z.announced != z.reduced.nat.announced {
-		fmt.Println("reduced and announced mismatch", z)
 		return false
 	}
 	if len(z.limbs) != limbCount(z.announced) {
-		fmt.Println("bad limb count", z)
 		return false
 	}
 	if len(z.limbs) > 0 {
 		lastLimb := z.limbs[len(z.limbs)-1]
 		if lastLimb != lastLimb&limbMask(z.announced) {
-			fmt.Println("unmasked limbs", z)
 			return false
 		}
 	}
@@ -1229,11 +1226,14 @@ func (z *Nat) Cmp(x *Nat) (Choice, Choice, Choice) {
 	xLimbs := x.resizedLimbs(maxBits)
 
 	eq := Choice(1)
-	geq := Choice(0)
+	geq := Choice(1)
 	for i := 0; i < len(zLimbs) && i < len(xLimbs); i++ {
 		eq_at_i := ctEq(zLimbs[i], xLimbs[i])
 		eq &= eq_at_i
 		geq = (eq_at_i & geq) | ((1 ^ eq_at_i) & ctGt(zLimbs[i], xLimbs[i]))
+	}
+	if (eq & (1 ^ geq)) == 1 {
+		panic("eq but not geq")
 	}
 	return geq & (1 ^ eq), eq, 1 ^ geq
 }
