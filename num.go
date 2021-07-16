@@ -600,7 +600,7 @@ func (m *Modulus) precomputeValues() {
 	}
 }
 
-// SetUint64 sets the modulus according to an integer
+// ModulusFromUint64 sets the modulus according to an integer
 func ModulusFromUint64(x uint64) *Modulus {
 	var m Modulus
 	m.nat.SetUint64(x)
@@ -608,7 +608,7 @@ func ModulusFromUint64(x uint64) *Modulus {
 	return &m
 }
 
-// FromBytes creates a new Modulus, converting from big endian bytes
+// ModulusFromBytes creates a new Modulus, converting from big endian bytes
 //
 // This function will remove leading zeros, thus leaking the true size of the modulus.
 // See the documentation for the Modulus type, for more information about this contract.
@@ -618,6 +618,22 @@ func ModulusFromBytes(bytes []byte) *Modulus {
 	m.nat.SetBytes(bytes)
 	m.precomputeValues()
 	return &m
+}
+
+// ModulusFromHex creates a new modulus from a hex string.
+//
+// The same rules as Nat.SetHex apply.
+//
+// Additionally, this function will remove leading zeros, leaking the true size of the modulus.
+// See the documentation for the Modulus type, for more information about this contract.
+func ModulusFromHex(hex string) (*Modulus, error) {
+	var m Modulus
+	_, err := m.nat.SetHex(hex)
+	if err != nil {
+		return nil, err
+	}
+	m.precomputeValues()
+	return &m, nil
 }
 
 // FromNat creates a new Modulus, using the value of a Nat
