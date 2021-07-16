@@ -1009,7 +1009,7 @@ func TestTrueLenExamples(t *testing.T) {
 	}
 }
 
-func TruncateExamples(t *testing.T) {
+func TestTruncateExamples(t *testing.T) {
 	x := new(Nat).SetUint64(0xAABB)
 	x.Truncate(16)
 	expected := []byte{0xAA, 0xBB}
@@ -1025,6 +1025,15 @@ func TruncateExamples(t *testing.T) {
 	expected = []byte{0xBB}
 	actual = x.Bytes()
 	if !bytes.Equal(expected, actual) {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+}
+
+func TestHexExamples(t *testing.T) {
+	x := new(Nat).SetUint64(0x0123456789ABCDEF)
+	expected := "0123456789ABCDEF"
+	actual := x.Hex()
+	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 }
