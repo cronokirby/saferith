@@ -98,3 +98,22 @@ func (z *Int) Mod(m *Modulus) *Nat {
 	out.CondAssign(z.sign, negated)
 	return out
 }
+
+// SetModSymmetric takes a number x mod M, and returns a signed number centered around 0.
+//
+// This effectively takes numbers in the range:
+//    {0, .., m - 1}
+// And returns numbers in the range:
+//    {-(m - 1)/2, ..., 0, ..., (m - 1)/2}
+// In the case that m is even, there will simply be an extra negative number.
+func (z *Int) SetModSymmetric(x *Nat, m *Modulus) *Int {
+	z.abs.Mod(x, m)
+	negated := new(Nat).ModNeg(&z.abs, m)
+	gt, _, _ := negated.Cmp(&z.abs)
+	negatedLeq := 1 ^ gt
+	// Always use the smaller value
+	z.abs.CondAssign(negatedLeq, negated)
+	// A negative modular number, by definition, will have it's negation <= itself
+	z.sign = negatedLeq
+	return z
+}

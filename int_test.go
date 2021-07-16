@@ -82,3 +82,16 @@ func TestIntModAddNegReturnsZero(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func testIntModRoundtrip(x Nat, m Modulus) bool {
+	xModM := new(Nat).Mod(&x, &m)
+	roundTrip := new(Int).SetModSymmetric(xModM, &m).Mod(&m)
+	return xModM.Eq(roundTrip) == 1
+}
+
+func TestIntModRoundtrip(t *testing.T) {
+	err := quick.Check(testIntModRoundtrip, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
