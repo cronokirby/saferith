@@ -65,6 +65,19 @@ func TestByteVsBytes(t *testing.T) {
 	}
 }
 
+func testSetBytesRoundTrip(expected []byte) bool {
+	x := new(Nat).SetBytes(expected)
+	actual := x.Bytes()
+	return bytes.Equal(expected, actual)
+}
+
+func TestSetBytesRoundTrip(t *testing.T) {
+	err := quick.Check(testSetBytesRoundTrip, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testAddZeroIdentity(n Nat) bool {
 	if !n.checkInvariants() {
 		return false
