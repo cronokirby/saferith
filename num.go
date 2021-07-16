@@ -1210,12 +1210,12 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
 func (x *Nat) Coprime(y *Nat) Choice {
-	size := len(x.limbs)
-	if len(y.limbs) > size {
-		size = len(y.limbs)
+	maxBits := x.announced
+	if y.announced > maxBits {
+		maxBits = y.announced
 	}
-	a := x.resizedLimbs(size)
-	b := y.resizedLimbs(size)
+	a := x.resizedLimbs(maxBits)
+	b := y.resizedLimbs(maxBits)
 
 	// Our gcd(a, b) routine requires b to be odd, and will return garbage otherwise.
 	aOdd := Choice(a[0] & 1)
@@ -1225,7 +1225,7 @@ func (x *Nat) Coprime(y *Nat) Choice {
 	d, _ := scratch.eGCD(a, b)
 
 	scratch.SetUint64(1)
-	one := scratch.resizedLimbs(len(d))
+	one := scratch.resizedLimbs(maxBits)
 
 	bOdd := Choice(b[0] & 1)
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
