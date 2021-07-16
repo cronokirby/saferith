@@ -69,3 +69,16 @@ func TestIntMulNegativeOneIsNeg(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func testIntModAddNegReturnsZero(x *Int, m Modulus) bool {
+	a := new(Int).Neg(x).Mod(&m)
+	b := x.Mod(&m)
+	return b.ModAdd(a, b, &m).EqZero() == 1
+}
+
+func TestIntModAddNegReturnsZero(t *testing.T) {
+	err := quick.Check(testIntModAddNegReturnsZero, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}

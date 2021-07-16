@@ -88,3 +88,13 @@ func (z *Int) Mul(x *Int, y *Int, cap int) *Int {
 	z.abs.Mul(&x.abs, &y.abs, cap)
 	return z
 }
+
+// Mod calculates z mod M, handling negatives correctly.
+//
+// As indicated by the types, this function will return a number in the range 0..m-1.
+func (z *Int) Mod(m *Modulus) *Nat {
+	out := new(Nat).Mod(&z.abs, m)
+	negated := new(Nat).ModNeg(out, m)
+	out.CondAssign(z.sign, negated)
+	return out
+}
