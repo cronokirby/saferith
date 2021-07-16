@@ -6,13 +6,22 @@ package safenum
 // the number of bits need to represent its absolute value. This can be
 // larger than its true size, the number of bits actually needed.
 type Int struct {
-	// This number is represented by (-1)^negative * abs, essentially
+	// This number is represented by (-1)^sign * abs, essentially
 
 	// When 1, this is a negative number, when 0 a positive number.
 	//
 	// There's a bit of redundancy to note, because -0 and +0 represent the same
 	// number. We need to be careful around this edge case.
-	negative Choice
+	sign Choice
 	// The absolute value.
 	abs *Nat
+}
+
+// SetBytes interprets a number in big-endian form, stores it in z, and returns z.
+//
+// This number will be positive.
+func (z *Int) SetBytes(data []byte) *Int {
+	z.sign = 0
+	z.abs.SetBytes(data)
+	return z
 }
