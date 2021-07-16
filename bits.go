@@ -1,7 +1,7 @@
 package safenum
 
-// limbCountFromBits returns the number of limbs needed to accomodate bits.
-func limbCountFromBits(bits int) int {
+// limbCount returns the number of limbs needed to accomodate bits.
+func limbCount(bits int) int {
 	return (bits + _W - 1) / _W
 }
 
