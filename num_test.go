@@ -2,6 +2,7 @@ package safenum
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -246,9 +247,13 @@ func TestModAddAssociative(t *testing.T) {
 }
 
 func testModAddModSubInverse(a Nat, b Nat, m Modulus) bool {
+	fmt.Println("a", a, "b", b)
 	var c Nat
+	fmt.Println("c1", c)
 	c.ModAdd(&a, &b, &m)
+	fmt.Println("c2", c)
 	c.ModSub(&c, &b, &m)
+	fmt.Println("c3", c)
 	expected := new(Nat)
 	expected.Mod(&a, &m)
 	return c.Eq(expected) == 1
@@ -806,28 +811,28 @@ func TestDivExamples(t *testing.T) {
 func TestCoprimeExamples(t *testing.T) {
 	x := new(Nat).SetUint64(5 * 7 * 13)
 	y := new(Nat).SetUint64(3 * 7 * 11)
-	expected := 0
+	expected := Choice(0)
 	actual := x.Coprime(y)
 	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 	x.SetUint64(2)
 	y.SetUint64(13)
-	expected = 1
+	expected = Choice(1)
 	actual = x.Coprime(y)
 	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 	x.SetUint64(13)
 	y.SetUint64(2)
-	expected = 1
+	expected = Choice(1)
 	actual = x.Coprime(y)
 	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 	x.SetUint64(2 * 13 * 11)
 	y.SetUint64(2 * 5 * 7)
-	expected = 0
+	expected = Choice(0)
 	actual = x.Coprime(y)
 	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
