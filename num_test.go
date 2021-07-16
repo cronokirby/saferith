@@ -1008,3 +1008,23 @@ func TestTrueLenExamples(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 }
+
+func TruncateExamples(t *testing.T) {
+	x := new(Nat).SetUint64(0xAABB)
+	x.Truncate(16)
+	expected := []byte{0xAA, 0xBB}
+	actual := x.Bytes()
+	if !bytes.Equal(expected, actual) {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+	x.Truncate(8)
+	expectedNat := new(Nat).SetUint64(0xBB)
+	if x.Eq(expectedNat) != 1 {
+		t.Errorf("%+v != %+v", expectedNat, x)
+	}
+	expected = []byte{0xBB}
+	actual = x.Bytes()
+	if !bytes.Equal(expected, actual) {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+}
