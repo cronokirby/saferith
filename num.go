@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
+	"strings"
 )
 
 // Constant Time Utilities
@@ -379,6 +380,52 @@ func (z *Nat) Bytes() []byte {
 	return z.FillBytes(out)
 }
 
+// convert a 4 bit value into an ASCII value in constant time
+func nibbletoASCII(nibble byte) byte {
+	w := Word(nibble)
+	value := ctIfElse(ctGt(w, 9), w-10+Word('A'), w+Word('0'))
+	return byte(value)
+}
+
+// Hex converts this number into a hexadecimal string.
+//
+// This string will be a multiple of 8 bits.
+//
+// This shouldn't leak any information about the value of this Nat, only its length.
+func (z *Nat) Hex() string {
+	bytes := z.Bytes()
+	var builder strings.Builder
+	for _, b := range bytes {
+		_ = builder.WriteByte(nibbletoASCII((b >> 4) & 0xF))
+		_ = builder.WriteByte(nibbletoASCII(b & 0xF))
+	}
+	return builder.String()
+}
+
+// the number of bytes to print in the string representation before an underscore
+const underscoreAfterNBytes = 4
+
+// String will represent this nat as a convenient Hex string
+//
+// This shouldn't leak any information about the value of this Nat, only its length.
+func (z *Nat) String() string {
+	bytes := z.Bytes()
+	var builder strings.Builder
+	_, _ = builder.WriteString("0x")
+	i := 0
+	for _, b := range bytes {
+		if i == underscoreAfterNBytes {
+			builder.WriteRune('_')
+			i = 0
+		}
+		builder.WriteByte(nibbletoASCII((b >> 4) & 0xF))
+		builder.WriteByte(nibbletoASCII(b & 0xF))
+		i += 1
+
+	}
+	return builder.String()
+}
+
 // Byte will access the ith byte in this nat, with 0 being the least significant byte.
 //
 // This will leak the value of i, and panic if i is < 0.
@@ -551,6 +598,23 @@ func ModulusFromNat(nat *Nat) *Modulus {
 // Bytes returns the big endian bytes making up the modulus
 func (m *Modulus) Bytes() []byte {
 	return m.nat.Bytes()
+}
+
+// Hex will represent this Modulus as a Hex string.
+//
+// The hex string will hold a multiple of 8 bits.
+//
+// This shouldn't leak any information about the value of the modulus, beyond
+// the usual leakage around its size.
+func (m *Modulus) Hex() string {
+	return m.nat.Hex()
+}
+
+// String will represent this Modulus as a convenient Hex string
+//
+// This shouldn't leak any information about the value of the modulus, only its length.
+func (m *Modulus) String() string {
+	return m.nat.String()
 }
 
 // BitLen returns the exact number of bits used to store this Modulus
