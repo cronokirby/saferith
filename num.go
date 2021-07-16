@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"fmt"
 	"math/big"
 	"math/bits"
 )
@@ -184,14 +185,17 @@ type Nat struct {
 // This is useful for tests.
 func (z *Nat) checkInvariants() bool {
 	if z.reduced != nil && z.announced != z.reduced.nat.announced {
+		fmt.Println("reduced and announced mismatch", z)
 		return false
 	}
 	if len(z.limbs) != limbCount(z.announced) {
+		fmt.Println("bad limb count", z)
 		return false
 	}
 	if len(z.limbs) > 0 {
 		lastLimb := z.limbs[len(z.limbs)-1]
 		if lastLimb != lastLimb&limbMask(z.announced) {
+			fmt.Println("unmasked limbs", z)
 			return false
 		}
 	}
@@ -409,6 +413,7 @@ func (z *Nat) SetBig(x *big.Int, size int) *Nat {
 	for i := 0; i < len(z.limbs) && i < len(bigLimbs); i++ {
 		z.limbs[i] = Word(bigLimbs[i])
 	}
+	maskEnd(z.limbs, size)
 	return z
 }
 
@@ -1341,7 +1346,7 @@ func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	newZ.modInverse(&newZ, x)
 	inverseZero := cmpZero(newZ.limbs)
 	newZ.Mul(&newZ, &m.nat, 2*size*_W)
-	newZ.limbs = newZ.resizedLimbs(2 * size)
+	newZ.limbs = newZ.resizedLimbs(_W * 2 * size)
 	subVW(newZ.limbs, newZ.limbs, 1)
 	divDouble(newZ.limbs, x.limbs, newZ.limbs)
 	// The result fits on a single half of newZ, but we need to subtract it from m.

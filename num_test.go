@@ -465,11 +465,11 @@ func testModInverseEvenMinusOne(a Nat) bool {
 	var one Nat
 	one.SetUint64(1)
 	var z Nat
-	z.Add(&a, &one, len(a.limbs)*_W+1)
+	z.Add(&a, &one, a.AnnouncedLen()+1)
 	if !z.checkInvariants() {
 		return false
 	}
-	z2 := new(Nat).modInverseEven(&a, ModulusFromNat(&z))
+	z2 := new(Nat).ModInverse(&a, ModulusFromNat(&z))
 	if !z2.checkInvariants() {
 		return false
 	}
