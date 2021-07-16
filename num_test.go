@@ -10,7 +10,7 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 1)
+	bytes := make([]byte, 16*_S)
 	r.Read(bytes)
 	var n Nat
 	n.SetBytes(bytes)
@@ -18,7 +18,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 1)
+	bytes := make([]byte, 8*_S)
 	r.Read(bytes)
 	// Ensure that our number isn't 0, but being even is ok
 	bytes[len(bytes)-1] |= 0b10
