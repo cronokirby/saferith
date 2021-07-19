@@ -645,6 +645,14 @@ func ModulusFromNat(nat *Nat) *Modulus {
 	return &m
 }
 
+// Nat returns the value of this modulus as a Nat.
+//
+// This will create a copy of this modulus value, so the Nat can be safely
+// mutated.
+func (m *Modulus) Nat() *Nat {
+	return new(Nat).SetNat(&m.nat)
+}
+
 // Bytes returns the big endian bytes making up the modulus
 func (m *Modulus) Bytes() []byte {
 	return m.nat.Bytes()
