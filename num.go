@@ -540,6 +540,13 @@ func (z *Nat) SetNat(x *Nat) *Nat {
 	return z
 }
 
+// Clone returns a copy of this value.
+//
+// This copy can safely be mutated without affecting the original.
+func (z *Nat) Clone() *Nat {
+	return new(Nat).SetNat(z)
+}
+
 // Resize resizes z to a certain number of bits, returning z.
 func (z *Nat) Resize(cap int) *Nat {
 	z.limbs = z.resizedLimbs(cap)
