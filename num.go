@@ -1374,6 +1374,13 @@ func (x *Nat) Coprime(y *Nat) Choice {
 	return (aOdd | bOdd) & cmpEq(d, one)
 }
 
+// IsUnit checks if x is a unit, i.e. invertible, mod m.
+//
+// This so happens to be when gcd(x, m) == 1.
+func (x *Nat) IsUnit(m *Modulus) Choice {
+	return x.Coprime(&m.nat)
+}
+
 // modInverse calculates the inverse of a reduced x modulo m
 //
 // This assumes that m is an odd number, but not that it's truncated
