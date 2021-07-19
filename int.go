@@ -65,6 +65,18 @@ func (z *Int) SetBig(x *big.Int, size int) *Int {
 	return z
 }
 
+// Big will convert this number into a big.Int, including sign.
+//
+// This will leak the true size of this number, and its sign, because of the leakiness
+// of big.Int, so caution should be exercises when using this function.
+func (z *Int) Big() *big.Int {
+	abs := z.abs.Big()
+	if z.sign == 1 {
+		abs.Neg(abs)
+	}
+	return abs
+}
+
 // Resize adjust the announced size of this number, possibly truncating the absolute value.
 func (z *Int) Resize(cap int) *Int {
 	z.abs.Resize(cap)
