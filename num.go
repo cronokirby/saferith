@@ -832,6 +832,9 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 	z.limbs = z.resizedLimbs(_W * (2*size + len(xLimbs)))
 
 	remainder := z.limbs[:size]
+	for i := 0; i < len(remainder); i++ {
+		remainder[i] = 0
+	}
 	scratch := z.limbs[size : 2*size]
 	// Our full quotient, in big endian order.
 	quotientBE := z.limbs[2*size:]
