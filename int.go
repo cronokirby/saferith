@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"math/big"
 	"math/bits"
 )
 
@@ -45,6 +46,22 @@ func (z *Int) SetUint64(x uint64) *Int {
 func (z *Int) SetNat(x *Nat) *Int {
 	z.sign = 0
 	z.abs.SetNat(x)
+	return z
+}
+
+// SetBig will set the value of this number to the value of a big.Int, including sign.
+//
+// The size dicates the number of bits to use for the absolute value. This is important,
+// in order to include additional padding that the big.Int might have stripped off.
+//
+// Since big.Int stores its sign as a boolean, it's likely that this conversion
+// will leak the value of the sign.
+func (z *Int) SetBig(x *big.Int, size int) *Int {
+	// x.Sign() = {-1, 0, 1},
+	// 1 - x.Sign() = {2, 1, 0},
+	// so this comparison correctly sniffs out negative numbers
+	z.sign = ctGt(Word(1-x.Sign()), 1)
+	z.abs.SetBig(x, size)
 	return z
 }
 
