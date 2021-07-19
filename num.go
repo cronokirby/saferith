@@ -1373,8 +1373,11 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
 func (x *Nat) Coprime(y *Nat) Choice {
 	maxBits := x.maxAnnounced(y)
-	a := x.resizedLimbs(maxBits)
-	b := y.resizedLimbs(maxBits)
+	size := limbCount(maxBits)
+	a := make([]Word, size)
+	copy(a, x.limbs)
+	b := make([]Word, size)
+	copy(b, y.limbs)
 
 	// Our gcd(a, b) routine requires b to be odd, and will return garbage otherwise.
 	aOdd := Choice(a[0] & 1)
