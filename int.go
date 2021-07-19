@@ -49,6 +49,16 @@ func (z *Int) SetNat(x *Nat) *Int {
 	return z
 }
 
+// Clone returns a copy of this Int.
+//
+// The copy can safely be mutated without affecting the original value.
+func (z *Int) Clone() *Int {
+	out := new(Int)
+	out.sign = z.sign
+	out.abs.SetNat(&z.abs)
+	return out
+}
+
 // SetBig will set the value of this number to the value of a big.Int, including sign.
 //
 // The size dicates the number of bits to use for the absolute value. This is important,
