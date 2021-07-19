@@ -650,6 +650,11 @@ func (m *Modulus) Bytes() []byte {
 	return m.nat.Bytes()
 }
 
+// Big returns the value of this Modulus as a big.Int
+func (m *Modulus) Big() *big.Int {
+	return m.nat.Big()
+}
+
 // Hex will represent this Modulus as a Hex string.
 //
 // The hex string will hold a multiple of 8 bits.
