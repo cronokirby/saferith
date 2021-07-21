@@ -1053,3 +1053,21 @@ func TestDivEdgeCase(t *testing.T) {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
 }
+
+func TestLshExamples(t *testing.T) {
+	x := new(Nat).SetUint64(1).Resize(1)
+	expected := new(Nat).SetUint64(32)
+	actual := x.Lsh(x, 5, -1)
+	if expected.Eq(actual) != 1 {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+}
+
+func TestRshExamples(t *testing.T) {
+	x := new(Nat).SetUint64(32)
+	expected := new(Nat).SetUint64(1)
+	actual := x.Rsh(x, 5, -1)
+	if expected.Eq(actual) != 1 {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+}

@@ -1126,9 +1126,8 @@ func (z *Nat) Rsh(x *Nat, shift uint, cap int) *Nat {
 	if cap < 0 {
 		cap = x.announced - int(shift)
 	}
-	size := limbCount(cap)
-	zLimbs := z.resizedLimbs(size)
-	xLimbs := x.resizedLimbs(size)
+	zLimbs := z.resizedLimbs(cap)
+	xLimbs := x.resizedLimbs(cap)
 	shrVU(zLimbs, xLimbs, shift)
 	z.limbs = zLimbs
 	z.announced = cap
@@ -1145,9 +1144,8 @@ func (z *Nat) Lsh(x *Nat, shift uint, cap int) *Nat {
 	if cap < 0 {
 		cap = x.announced + int(shift)
 	}
-	size := limbCount(cap)
-	zLimbs := z.resizedLimbs(size)
-	xLimbs := x.resizedLimbs(size)
+	zLimbs := z.resizedLimbs(cap)
+	xLimbs := x.resizedLimbs(cap)
 	shlVU(zLimbs, xLimbs, shift)
 	z.limbs = zLimbs
 	z.announced = cap
