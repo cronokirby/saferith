@@ -1126,10 +1126,10 @@ func (z *Nat) Rsh(x *Nat, shift uint, cap int) *Nat {
 	if cap < 0 {
 		cap = x.announced - int(shift)
 	}
-	zLimbs := z.resizedLimbs(cap)
-	xLimbs := x.resizedLimbs(cap)
+	zLimbs := z.resizedLimbs(x.announced)
+	xLimbs := x.resizedLimbs(x.announced)
 	shrVU(zLimbs, xLimbs, shift)
-	z.limbs = zLimbs
+	z.limbs = z.resizedLimbs(cap)
 	z.announced = cap
 	z.reduced = nil
 	return z

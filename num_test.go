@@ -2,6 +2,7 @@ package safenum
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -10,7 +11,7 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 16*_S)
+	bytes := make([]byte, 1)
 	r.Read(bytes)
 	var n Nat
 	n.SetBytes(bytes)
@@ -173,6 +174,63 @@ func testAddAssociative(a Nat, b Nat, c Nat) bool {
 
 func TestAddAssociative(t *testing.T) {
 	err := quick.Check(testAddAssociative, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testLshCompositionIsAdditionOfShifts(x Nat, s1 uint8, s2 uint8) bool {
+	s1 %= _W >> 1
+	s2 %= _W >> 1
+
+	way1 := new(Nat).Lsh(&x, uint(s1), -1)
+	way1.Lsh(way1, uint(s2), -1)
+	way2 := new(Nat).Lsh(&x, uint(s1)+uint(s2), -1)
+	if way1.Eq(way2) != 1 {
+		fmt.Println("x", &x)
+		fmt.Println("s1", s1)
+		fmt.Println("s2", s2)
+		fmt.Println("way1", way1)
+		fmt.Println("way2", way2)
+		return false
+	}
+	return true
+}
+
+func TestLshCompositionIsAdditionOfShifts(t *testing.T) {
+	err := quick.Check(testLshCompositionIsAdditionOfShifts, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testRshCompositionIsAdditionOfShifts(x Nat, s1 uint8, s2 uint8) bool {
+	s1 %= _W >> 1
+	s2 %= _W >> 1
+
+	way1 := new(Nat).Rsh(&x, uint(s1), -1)
+	way1.Rsh(way1, uint(s2), -1)
+	way2 := new(Nat).Rsh(&x, uint(s1)+uint(s2), -1)
+	return way1.Eq(way2) == 1
+}
+
+func TestRshCompositionIsAdditionOfShifts(t *testing.T) {
+	err := quick.Check(testRshCompositionIsAdditionOfShifts, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testLshRshRoundTrip(x Nat, s uint8) bool {
+	s %= _W
+
+	z := new(Nat).Lsh(&x, uint(s), -1)
+	z.Rsh(z, uint(s), -1)
+	return x.Eq(z) == 1
+}
+
+func TestLshRshRoundTrip(t *testing.T) {
+	err := quick.Check(testLshRshRoundTrip, &quick.Config{})
 	if err != nil {
 		t.Error(err)
 	}
