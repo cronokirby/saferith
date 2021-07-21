@@ -1136,6 +1136,25 @@ func (z *Nat) Rsh(x *Nat, shift uint, cap int) *Nat {
 	return z
 }
 
+// Lsh calculates z <- x << shift, producing a certain number of bits
+//
+// This method will leak the value of shift.
+//
+// If cap < 0, the number of bits will be x.AnnouncedLen() + shift.
+func (z *Nat) Lsh(x *Nat, shift uint, cap int) *Nat {
+	if cap < 0 {
+		cap = x.announced + int(shift)
+	}
+	size := limbCount(cap)
+	zLimbs := z.resizedLimbs(size)
+	xLimbs := x.resizedLimbs(size)
+	shlVU(zLimbs, xLimbs, shift)
+	z.limbs = zLimbs
+	z.announced = cap
+	z.reduced = nil
+	return z
+}
+
 func (z *Nat) expOdd(x *Nat, y *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 
