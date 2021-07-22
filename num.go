@@ -1125,10 +1125,27 @@ func (z *Nat) Mul(x *Nat, y *Nat, cap int) *Nat {
 func (z *Nat) Rsh(x *Nat, shift uint, cap int) *Nat {
 	if cap < 0 {
 		cap = x.announced - int(shift)
+		if cap < 0 {
+			cap = 0
+		}
 	}
+
 	zLimbs := z.resizedLimbs(x.announced)
 	xLimbs := x.resizedLimbs(x.announced)
-	shrVU(zLimbs, xLimbs, shift)
+	singleShift := shift % _W
+	shrVU(zLimbs, xLimbs, singleShift)
+
+	limbShifts := (shift - singleShift) / _W
+	if limbShifts > 0 {
+		i := 0
+		for ; i+int(limbShifts) < len(zLimbs); i++ {
+			zLimbs[i] = zLimbs[i+int(limbShifts)]
+		}
+		for ; i < len(zLimbs); i++ {
+			zLimbs[i] = 0
+		}
+	}
+
 	z.limbs = z.resizedLimbs(cap)
 	z.announced = cap
 	z.reduced = nil
