@@ -1163,7 +1163,20 @@ func (z *Nat) Lsh(x *Nat, shift uint, cap int) *Nat {
 	}
 	zLimbs := z.resizedLimbs(cap)
 	xLimbs := x.resizedLimbs(cap)
-	shlVU(zLimbs, xLimbs, shift)
+	singleShift := shift % _W
+	shlVU(zLimbs, xLimbs, singleShift)
+
+	limbShifts := (shift - singleShift) / _W
+	if limbShifts > 0 {
+		i := len(zLimbs) - 1
+		for ; i-int(limbShifts) >= 0; i-- {
+			zLimbs[i] = zLimbs[i-int(limbShifts)]
+		}
+		for ; i >= 0; i-- {
+			zLimbs[i] = 0
+		}
+	}
+
 	z.limbs = zLimbs
 	z.announced = cap
 	z.reduced = nil

@@ -180,9 +180,6 @@ func TestAddAssociative(t *testing.T) {
 }
 
 func testLshCompositionIsAdditionOfShifts(x Nat, s1 uint8, s2 uint8) bool {
-	s1 %= _W >> 1
-	s2 %= _W >> 1
-
 	way1 := new(Nat).Lsh(&x, uint(s1), -1)
 	way1.Lsh(way1, uint(s2), -1)
 	way2 := new(Nat).Lsh(&x, uint(s1)+uint(s2), -1)
@@ -219,8 +216,6 @@ func TestRshCompositionIsAdditionOfShifts(t *testing.T) {
 }
 
 func testLshRshRoundTrip(x Nat, s uint8) bool {
-	s %= _W
-
 	z := new(Nat).Lsh(&x, uint(s), -1)
 	z.Rsh(z, uint(s), -1)
 	return x.Eq(z) == 1
