@@ -377,6 +377,19 @@ func (z *Nat) Bytes() []byte {
 	return z.FillBytes(out)
 }
 
+// MarshalBinary implements encoding.BinaryMarshaler.
+// Returns the same value as Bytes().
+func (i *Nat) MarshalBinary() ([]byte, error) {
+	return i.Bytes(), nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+// Wraps SetBytes
+func (i *Nat) UnmarshalBinary(data []byte) error {
+	i.SetBytes(data)
+	return nil
+}
+
 // convert a 4 bit value into an ASCII value in constant time
 func nibbletoASCII(nibble byte) byte {
 	w := Word(nibble)
@@ -663,6 +676,18 @@ func (m *Modulus) Nat() *Nat {
 // Bytes returns the big endian bytes making up the modulus
 func (m *Modulus) Bytes() []byte {
 	return m.nat.Bytes()
+}
+
+// MarshalBinary implements encoding.BinaryMarshaler.
+func (i *Modulus) MarshalBinary() ([]byte, error) {
+	return i.nat.Bytes(), nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+func (i *Modulus) UnmarshalBinary(data []byte) error {
+	i.nat.SetBytes(data)
+	i.precomputeValues()
+	return nil
 }
 
 // Big returns the value of this Modulus as a big.Int

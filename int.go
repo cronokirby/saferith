@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"errors"
 	"math/big"
 	"math/bits"
 )
@@ -31,6 +32,29 @@ func (z *Int) SetBytes(data []byte) *Int {
 	z.sign = 0
 	z.abs.SetBytes(data)
 	return z
+}
+
+// MarshalBinary implements encoding.BinaryMarshaler.
+// The retrned byte slice is always of length 1 + len(i.Abs().Bytes()),
+// where the first byte encodes the sign.
+func (i *Int) MarshalBinary() ([]byte, error) {
+	length := 1 + (i.abs.announced+7)/8
+	out := make([]byte, length)
+	out[0] = byte(i.sign)
+	i.abs.FillBytes(out[1:])
+	return out, nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+// Returns an error when the length of data is 0,
+// since we always expect the first byte to encode the sign.
+func (i *Int) UnmarshalBinary(data []byte) error {
+	if len(data) == 0 {
+		return errors.New("data must contain a sign byte")
+	}
+	i.abs.SetBytes(data[1:])
+	i.sign = Choice(data[0] & 1)
+	return nil
 }
 
 // SetUint64 sets the value of z to x.

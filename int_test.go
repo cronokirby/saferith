@@ -1,6 +1,7 @@
 package safenum
 
 import (
+	"bytes"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -154,5 +155,46 @@ func TestIntAddExamples(t *testing.T) {
 	actual := new(Int).Add(x, y, -1)
 	if expected.Eq(actual) != 1 {
 		t.Errorf("%+v != %+v", expected, actual)
+	}
+}
+
+func testIntMarshalBinaryRoundTrip(x *Int) bool {
+	out, err := x.MarshalBinary()
+	if err != nil {
+		return false
+	}
+	y := new(Int)
+	err = y.UnmarshalBinary(out)
+	if err != nil {
+		return false
+	}
+	return x.Eq(y) == 1
+}
+
+func TestIntMarshalBinaryRoundTrip(t *testing.T) {
+	err := quick.Check(testIntMarshalBinaryRoundTrip, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testInvalidInt(expected []byte) bool {
+	x := new(Int)
+	err := x.UnmarshalBinary(expected)
+	// empty slice is invalid, so we expect an error
+	if len(expected) == 0 {
+		return err != nil
+	}
+	expectedBytes := expected[1:]
+	expectedSign := Choice(expected[0]) & 1
+	actualBytes := x.Abs().Bytes()
+	actualSign := x.sign
+	return (expectedSign == actualSign) && bytes.Equal(expectedBytes, actualBytes)
+}
+
+func TestInvalidInt(t *testing.T) {
+	err := quick.Check(testInvalidInt, &quick.Config{})
+	if err != nil {
+		t.Error(err)
 	}
 }
