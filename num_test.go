@@ -79,6 +79,47 @@ func TestSetBytesRoundTrip(t *testing.T) {
 	}
 }
 
+func testNatMarshalBinaryRoundTrip(x Nat) bool {
+	out, err := x.MarshalBinary()
+	if err != nil {
+		return false
+	}
+	y := new(Nat)
+	err = y.UnmarshalBinary(out)
+	if err != nil {
+		return false
+	}
+	return x.Eq(y) == 1
+}
+
+func TestNatMarshalBinaryRoundTrip(t *testing.T) {
+	err := quick.Check(testNatMarshalBinaryRoundTrip, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testModulusMarshalBinaryRoundTrip(x Modulus) bool {
+	out, err := x.MarshalBinary()
+	if err != nil {
+		return false
+	}
+	y := new(Modulus)
+	err = y.UnmarshalBinary(out)
+	if err != nil {
+		return false
+	}
+	_, eq, _ := x.Cmp(y)
+	return eq == 1
+}
+
+func TestModulusMarshalBinaryRoundTrip(t *testing.T) {
+	err := quick.Check(testModulusMarshalBinaryRoundTrip, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func testAddZeroIdentity(n Nat) bool {
 	if !n.checkInvariants() {
 		return false
