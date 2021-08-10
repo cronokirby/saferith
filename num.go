@@ -1171,6 +1171,7 @@ func (z *Nat) Rsh(x *Nat, shift uint, cap int) *Nat {
 		}
 	}
 
+	z.limbs = zLimbs
 	z.limbs = z.resizedLimbs(cap)
 	z.announced = cap
 	z.reduced = nil

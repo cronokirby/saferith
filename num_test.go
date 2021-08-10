@@ -262,6 +262,30 @@ func testLshRshRoundTrip(x Nat, s uint8) bool {
 	return x.Eq(z) == 1
 }
 
+func TestRshLshRoundTrip(t *testing.T) {
+	err := quick.Check(testRshLshRoundTrip, &quick.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func testRshLshRoundTrip(x Nat, s uint8) bool {
+	if t := x.TrueLen(); int(s) > t {
+		s = uint8(t)
+	}
+	singleShift := s % _W
+	limbShifts := (s - singleShift) / _W
+	i := 0
+	for ; i < int(limbShifts) && i < len(x.limbs)-1; i++ {
+		x.limbs[i] = 0
+	}
+	mask := limbMask(int(singleShift))
+	x.limbs[i] &= ^mask
+	z := new(Nat).Rsh(&x, uint(s), -1)
+	z.Lsh(z, uint(s), -1)
+	return x.Eq(z) == 1
+}
+
 func TestLshRshRoundTrip(t *testing.T) {
 	err := quick.Check(testLshRshRoundTrip, &quick.Config{})
 	if err != nil {
