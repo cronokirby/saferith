@@ -9,7 +9,7 @@ import (
 )
 
 func (*Int) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 16*_S)
+	bytes := make([]byte, r.Int()&127)
 	r.Read(bytes)
 	i := new(Int).SetBytes(bytes)
 	if r.Int()&1 == 1 {
