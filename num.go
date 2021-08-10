@@ -854,7 +854,11 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 	xLimbs := x.unaliasedLimbs(z)
 
 	// Enough for 2 buffers the size of m, and to store the full quotient
-	z.limbs = z.resizedLimbs(_W * (2*size + len(xLimbs)))
+	startSize := limbCount(cap)
+	if startSize < 2*size {
+		startSize = 2 * size
+	}
+	z.limbs = z.resizedLimbs(_W * (startSize + len(xLimbs)))
 
 	remainder := z.limbs[:size]
 	for i := 0; i < len(remainder); i++ {
@@ -862,7 +866,7 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 	}
 	scratch := z.limbs[size : 2*size]
 	// Our full quotient, in big endian order.
-	quotientBE := z.limbs[2*size:]
+	quotientBE := z.limbs[startSize:]
 	// We use this to append without actually reallocating. We fill our quotient
 	// in from 0 upwards.
 	qI := 0
@@ -887,7 +891,6 @@ func (z *Nat) Div(x *Nat, m *Modulus, cap int) *Nat {
 		quotientBE[qI] = q
 		qI++
 	}
-
 	z.limbs = z.resizedLimbs(cap)
 	// First, reverse all the limbs we want, from the last part of the buffer we used.
 	for i := 0; i < len(z.limbs) && i < len(quotientBE); i++ {
