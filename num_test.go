@@ -11,7 +11,7 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 1)
+	bytes := make([]byte, r.Int()&127)
 	r.Read(bytes)
 	var n Nat
 	n.SetBytes(bytes)
@@ -19,7 +19,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 8*_S)
+	bytes := make([]byte, 1+(r.Int()&127))
 	r.Read(bytes)
 	// Ensure that our number isn't 0, but being even is ok
 	bytes[len(bytes)-1] |= 0b10
@@ -275,12 +275,14 @@ func testRshLshRoundTrip(x Nat, s uint8) bool {
 	}
 	singleShift := s % _W
 	limbShifts := (s - singleShift) / _W
-	i := 0
-	for ; i < int(limbShifts) && i < len(x.limbs)-1; i++ {
-		x.limbs[i] = 0
+	if len(x.limbs) > 0 {
+		i := 0
+		for ; i < int(limbShifts) && i < len(x.limbs)-1; i++ {
+			x.limbs[i] = 0
+		}
+		mask := limbMask(int(singleShift))
+		x.limbs[i] &= ^mask
 	}
-	mask := limbMask(int(singleShift))
-	x.limbs[i] &= ^mask
 	z := new(Nat).Rsh(&x, uint(s), -1)
 	z.Lsh(z, uint(s), -1)
 	return x.Eq(z) == 1
@@ -555,7 +557,9 @@ func testModInverseMinusOne(a Nat) bool {
 		return false
 	}
 	// Clear out the lowest bit
-	a.limbs[0] &= ^Word(1)
+	if len(a.limbs) > 0 {
+		a.limbs[0] &= ^Word(1)
+	}
 	var zero Nat
 	zero.SetUint64(0)
 	if a.Eq(&zero) == 1 {
@@ -584,7 +588,9 @@ func testModInverseEvenMinusOne(a Nat) bool {
 		return false
 	}
 	// Set the lowest bit
-	a.limbs[0] |= 1
+	if len(a.limbs) != 0 {
+		a.limbs[0] |= 1
+	}
 	var zero Nat
 	zero.SetUint64(0)
 	if a.Eq(&zero) == 1 {
@@ -616,7 +622,9 @@ func testModInverseEvenOne(a Nat) bool {
 		return false
 	}
 	// Clear the lowest bit
-	a.limbs[0] &= ^Word(1)
+	if len(a.limbs) > 0 {
+		a.limbs[0] &= ^Word(1)
+	}
 	var zero Nat
 	zero.SetUint64(0)
 	if a.Eq(&zero) == 1 {
@@ -648,7 +656,11 @@ func testExpAddition(x Nat, a Nat, b Nat, m Modulus) bool {
 	expA.Exp(&x, &a, &m)
 	expB.Exp(&x, &b, &m)
 	// Enough bits to hold the full amount
-	aPlusB.Add(&a, &b, len(a.limbs)*_W+1)
+	cap := len(a.limbs)
+	if l := len(b.limbs); l > cap {
+		cap = l
+	}
+	aPlusB.Add(&a, &b, cap*_W+1)
 	way1.ModMul(&expA, &expB, &m)
 	way2.Exp(&x, &aPlusB, &m)
 	if !(way1.checkInvariants() && way2.checkInvariants() && aPlusB.checkInvariants()) {
