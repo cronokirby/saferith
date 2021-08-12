@@ -1469,6 +1469,11 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 func (x *Nat) Coprime(y *Nat) Choice {
 	maxBits := x.maxAnnounced(y)
 	size := limbCount(maxBits)
+	if size == 0 {
+		// technically the result should be 1 since 0 is not a divisor,
+		// but we expect 0 when both arguments are equal.
+		return 0
+	}
 	a := make([]Word, size)
 	copy(a, x.limbs)
 	b := make([]Word, size)
