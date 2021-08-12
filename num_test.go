@@ -1124,6 +1124,24 @@ func TestCoprimeExamples(t *testing.T) {
 	if expected != actual {
 		t.Errorf("%+v != %+v", expected, actual)
 	}
+
+	// check x,y with 0 limbs
+	x = new(Nat)
+	y = new(Nat)
+	expected = Choice(0)
+	actual = x.Coprime(y)
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
+
+	// check x,y=0 with 1 empty limb
+	x.SetUint64(0)
+	y.SetUint64(0)
+	expected = Choice(0)
+	actual = x.Coprime(y)
+	if expected != actual {
+		t.Errorf("%+v != %+v", expected, actual)
+	}
 }
 
 func TestTrueLenExamples(t *testing.T) {
