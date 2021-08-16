@@ -1380,6 +1380,68 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
+func (z *Nat) mixAndShift(a, b *Nat, alpha, beta Word) (Word, Word) {
+	fmt.Printf("  mixAndShift a %v b %v alpha %X beta %X\n", a, b, alpha, beta)
+	k := _W >> 1
+	aInt := new(Int).SetNat(a)
+	bInt := new(Int).SetNat(b)
+	alphaNeg := Choice(alpha >> (_W - 1))
+	alphaAbs := alpha
+	if alphaNeg == 1 {
+		alphaAbs = -alphaAbs
+	}
+	alphaInt := new(Int).SetUint64(uint64(alphaAbs))
+	alphaInt.Neg(alphaNeg)
+	betaNeg := Choice(beta >> (_W - 1))
+	betaAbs := beta
+	if betaNeg == 1 {
+		betaAbs = -betaAbs
+	}
+	betaInt := new(Int).SetUint64(uint64(betaAbs))
+	betaInt.Neg(betaNeg)
+	fmt.Println("    alphaInt", alphaInt, "betaInt", betaInt)
+
+	out := new(Int).Mul(aInt, alphaInt, -1)
+	out.Add(out, new(Int).Mul(bInt, betaInt, -1), -1)
+	fmt.Println("    res:", out)
+
+	z.SetNat(out.Abs())
+	if out.IsNegative() == 1 {
+		alpha = -alpha
+		beta = -beta
+	}
+	z.Rsh(z, uint(k-1), -1)
+	fmt.Printf("    res: %v, alpha %X beta %X\n", z, alpha, beta)
+	return alpha, beta
+}
+
+func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
+	fmt.Printf("  mixAndReduce a %v b %v alpha %X beta %X m %v\n", a, b, alpha, beta, m)
+	aInt := new(Int).SetNat(a)
+	bInt := new(Int).SetNat(b)
+	alphaNeg := Choice(alpha >> (_W - 1))
+	alphaAbs := alpha
+	if alphaNeg == 1 {
+		alphaAbs = -alphaAbs
+	}
+	alphaInt := new(Int).SetUint64(uint64(alphaAbs))
+	alphaInt.Neg(alphaNeg)
+	betaNeg := Choice(beta >> (_W - 1))
+	betaAbs := beta
+	if betaNeg == 1 {
+		betaAbs = -betaAbs
+	}
+	betaInt := new(Int).SetUint64(uint64(betaAbs))
+	betaInt.Neg(betaNeg)
+	fmt.Println("    alphaInt", alphaInt, "betaInt", betaInt)
+
+	out := new(Int).Mul(aInt, alphaInt, -1)
+	out.Add(out, new(Int).Mul(bInt, betaInt, -1), -1)
+	fmt.Println("    res:", out)
+	z.SetNat(out.Mod(ModulusFromNat(m)))
+	fmt.Printf("    res: %v\n", z)
+}
+
 // invert calculates and returns v s.t. vx = 1 mod m, and a flag indicating success.
 //
 // This function assumes that m is and odd number, but doesn't assume
@@ -1388,83 +1450,106 @@ func (z *Nat) EqZero() Choice {
 // The slice returned should be copied into the result, and not used directly.
 //
 // The recipient Nat is used only for scratch space.
-func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
-	size := len(m)
-
-	scratch := z.resizedLimbs(_W * 8 * size)
-	v := scratch[:size]
-	u := scratch[size : 2*size]
-	b := scratch[2*size : 3*size]
-	a := scratch[3*size : 4*size]
-	halfm := scratch[4*size : 5*size+1]
-	a1 := scratch[5*size : 6*size]
-	u1 := scratch[6*size : 7*size]
-	u2 := scratch[7*size:]
-
-	// a = x
-	copy(a, x)
-	// v = 0
-	// u = 1
-	for i := 0; i < size; i++ {
-		u[i] = 0
-		v[i] = 0
-	}
-	u[0] = 1
-
-	// halfm = (m + 1) / 2
-	halfm[size] = addVW(halfm, m, 1)
-	shrVU(halfm, halfm, 1)
-	halfm = halfm[:size]
-
-	copy(b, m)
-
-	// Idea:
-	//
-	// while a != 0:
-	//   if a is even:
-	//	   a = a / 2
-	//     u = (u / 2) mod m
-	//   else:
-	//     if a < b:
-	//       swap(a, b)
-	//       swap(u, v)
-	//     a = (a - b) / 2
-	//     u = (u - v) / 2 mod m
-	//
-	// We run for 2 * k - 1 iterations, with k the number of bits of the modulus
-	for i := 0; i < 2*_W*size-1; i++ {
-		// a1 and u2 will hold the results to use if a is even
-		aOdd := Choice(shrVU(a1, a, 1) >> (_W - 1))
-		aEven := 1 ^ aOdd
-		uOdd := Choice(shrVU(u2, u, 1) >> (_W - 1))
-		addVV(u1, u2, halfm)
-		ctCondCopy(uOdd, u2, u1)
-
-		// Now we calculate the results if a is not even, which may get overwritten later
-		aSmaller := 1 ^ cmpGeq(a, b)
-		swap := aOdd & aSmaller
-		ctCondSwap(swap, a, b)
-		ctCondSwap(swap, u, v)
-
-		subVV(a, a, b)
-		shrVU(a, a, 1)
-		// u = (u - v) / 2 mod m
-		subCarry := Choice(subVV(u, u, v))
-		addVV(u1, u, m)
-		ctCondCopy(subCarry, u, u1)
-		uOdd = Choice(shrVU(u, u, 1) >> (_W - 1))
-		addVV(u1, u, halfm)
-		ctCondCopy(uOdd, u, u1)
-
-		// If a was indeed even, we use the results we produced earlier
-		ctCondCopy(aEven, a, a1)
-		ctCondCopy(aEven, u, u2)
+func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Word) {
+	k := _W >> 1
+	n := announced
+	if _W > n {
+		n = _W
 	}
 
-	one := make([]Word, len(b))
+	x := new(Nat)
+	x.announced = announced
+	x.limbs = xLimbs
+	m := new(Nat)
+	m.announced = announced
+	m.limbs = mLimbs
+	fmt.Println("x", x)
+	fmt.Println("m", m)
+
+	a := new(Nat).SetNat(x).Resize(announced)
+	u := new(Nat).SetUint64(1).Resize(announced)
+	b := new(Nat).SetNat(m).Resize(announced)
+	v := new(Nat).Resize(announced)
+	fmt.Println("--")
+	fmt.Println("  a", a)
+	fmt.Println("  b", b)
+	fmt.Println("  u", u)
+	fmt.Println("  v", v)
+
+	iterations := ((2*announced - 1) + k - 2) / (k - 1)
+	for i := 0; i < iterations; i++ {
+		aBar := a.limbs[0]&((1<<(k-1))-1) | (a.limbs[len(a.limbs)-1] >> (_W - (k + 1)) << (k - 1))
+		bBar := b.limbs[0]&((1<<(k-1))-1) | (b.limbs[len(b.limbs)-1] >> (_W - (k + 1)) << (k - 1))
+
+		f0 := Word(1)
+		g0 := Word(0)
+		f1 := Word(0)
+		g1 := Word(1)
+		fmt.Printf("  --\n")
+		fmt.Printf("    aBar %X\n", aBar)
+		fmt.Printf("    bBar %X\n", bBar)
+		fmt.Printf("    f0 %X g0 %X f1 %X g1 %X\n", f0, g0, f1, g1)
+		for j := 0; j < k-1; j++ {
+			if aBar&1 == 0 {
+				aBar >>= 1
+			} else {
+				if aBar < bBar {
+					aBar, bBar = bBar, aBar
+					f0, g0, f1, g1 = f1, g1, f0, g0
+				}
+				aBar = (aBar - bBar) >> 1
+				f0 -= f1
+				g0 -= g1
+			}
+			f1 <<= 1
+			g1 <<= 1
+			fmt.Printf("  --\n")
+			fmt.Printf("    aBar %X\n", aBar)
+			fmt.Printf("    bBar %X\n", bBar)
+			fmt.Printf("    f0 %X g0 %X f1 %X g1 %X\n", f0, g0, f1, g1)
+		}
+		tmp := new(Nat)
+		f0, g0 = tmp.mixAndShift(a, b, f0, g0)
+		tmp.Resize(announced)
+		f1, g1 = b.mixAndShift(a, b, f1, g1)
+		b.Resize(announced)
+		a.SetNat(tmp)
+
+		tmp.mixAndReduce(u, v, f0, g0, m)
+		tmp.Resize(announced)
+		v.mixAndReduce(u, v, f1, g1, m)
+		v.Resize(announced)
+		u.SetNat(tmp)
+
+		fmt.Println("--")
+		mMod := ModulusFromNat(m)
+		fmt.Println("  a", a)
+		fmt.Println("    ux", new(Nat).ModMul(u, x, mMod))
+		fmt.Println("  b", b)
+		fmt.Println("  u", u)
+		fmt.Println("  v", v)
+		expected := new(Nat).Lsh(b, uint(k-1), -1)
+		expected.Mod(expected, mMod)
+		fmt.Println("    vx", new(Nat).ModMul(v, x, mMod), "(expected)", expected)
+	}
+	fmt.Println("--")
+	fmt.Println("v", v)
+	fmt.Println("iterations * (k - 1)", iterations*(k-1))
+
+	for i := 0; i < iterations*(k-1); i++ {
+		if v.limbs[0]&1 == 0 {
+			v.Rsh(v, 1, announced)
+		} else {
+			v.Add(v, m, -1)
+			v.Rsh(v, 1, announced)
+		}
+	}
+	fmt.Printf("v %+v\n\n", v)
+
+	one := make([]Word, len(b.limbs))
 	one[0] = 1
 
-	return cmpEq(one, b), v
+	return cmpEq(one, b.limbs), v.limbs
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
@@ -1486,9 +1571,12 @@ func (x *Nat) Coprime(y *Nat) Choice {
 	ctCondSwap(aOdd, a, b)
 
 	scratch := new(Nat)
+	bOdd := Choice(b[0] & 1)
+	// We make b odd so that our calculations aren't messed up, but this doesn't affect
+	// our result
+	b[0] |= 1
 	invertible, _ := scratch.invert(maxBits, a, b)
 
-	bOdd := Choice(b[0] & 1)
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
 	// otherwise, both are even, so we want to return false anyways.
 	return (aOdd | bOdd) & invertible

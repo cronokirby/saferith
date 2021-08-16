@@ -11,7 +11,7 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, r.Int()&0x7F)
+	bytes := make([]byte, r.Int()&0x9)
 	r.Read(bytes)
 	var n Nat
 	n.SetBytes(bytes)
@@ -19,7 +19,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 1+(r.Int()&0x3F))
+	bytes := make([]byte, 1+(r.Int()&0x7))
 	r.Read(bytes)
 	// Ensure that our number isn't 0, but being even is ok
 	bytes[len(bytes)-1] |= 0b10
@@ -560,16 +560,17 @@ func testModInverseMinusOne(a Nat) bool {
 	if len(a.limbs) > 0 {
 		a.limbs[0] &= ^Word(1)
 	}
-	var zero Nat
-	zero.SetUint64(0)
-	if a.Eq(&zero) == 1 {
+	if a.EqZero() == 1 {
 		return true
 	}
 	var one Nat
 	one.SetUint64(1)
-	z := new(Nat).Add(&a, &one, a.AnnouncedLen()+1)
+	z := new(Nat).Add(&a, &one, -1)
 	m := ModulusFromNat(z)
+	fmt.Println("a", &a)
+	fmt.Println("m", m)
 	z.ModInverse(&a, m)
+	fmt.Println("z", z)
 	if !z.checkInvariants() {
 		return false
 	}
@@ -908,6 +909,16 @@ func TestModInverseExamples(t *testing.T) {
 	m = ModulusFromUint64(461423694561)
 	z.ModInverse(&x, m)
 	if x.Eq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+}
+
+func TestModInverseExamples2(t *testing.T) {
+	x, _ := new(Nat).SetHex("930330931B69B44B8E")
+	m, _ := ModulusFromHex("930330931B69B44B8F")
+	z := new(Nat).ModInverse(x, m)
+	fmt.Println("z", z)
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
