@@ -1380,16 +1380,15 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
-// eGCD calculates and returns d := gcd(x, m) and v s.t. vx = d mod m
+// invert calculates and returns v s.t. vx = 1 mod m, and a flag indicating success.
 //
 // This function assumes that m is and odd number, but doesn't assume
 // that m is truncated to its full size.
 //
-// The slices returned should be copied into the result, and not used
-// directly, for aliasing reasons.
+// The slice returned should be copied into the result, and not used directly.
 //
 // The recipient Nat is used only for scratch space.
-func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
+func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 	size := len(m)
 
 	scratch := z.resizedLimbs(_W * 8 * size)
@@ -1462,7 +1461,10 @@ func (z *Nat) eGCD(x []Word, m []Word) ([]Word, []Word) {
 		ctCondCopy(aEven, u, u2)
 	}
 
-	return b, v
+	one := make([]Word, len(b))
+	one[0] = 1
+
+	return cmpEq(one, b), v
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
@@ -1484,15 +1486,12 @@ func (x *Nat) Coprime(y *Nat) Choice {
 	ctCondSwap(aOdd, a, b)
 
 	scratch := new(Nat)
-	d, _ := scratch.eGCD(a, b)
-
-	scratch.SetUint64(1)
-	one := scratch.resizedLimbs(maxBits)
+	invertible, _ := scratch.invert(maxBits, a, b)
 
 	bOdd := Choice(b[0] & 1)
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
 	// otherwise, both are even, so we want to return false anyways.
-	return (aOdd | bOdd) & cmpEq(d, one)
+	return (aOdd | bOdd) & invertible
 }
 
 // IsUnit checks if x is a unit, i.e. invertible, mod m.
@@ -1513,7 +1512,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
 	// Make sure that z doesn't alias either of m or x
 	xLimbs := x.unaliasedLimbs(z)
 	mLimbs := m.unaliasedLimbs(z)
-	_, v := z.eGCD(xLimbs, mLimbs)
+	_, v := z.invert(m.announced, xLimbs, mLimbs)
 	z.limbs = z.resizedLimbs(m.announced)
 	copy(z.limbs, v)
 	maskEnd(z.limbs, m.announced)
