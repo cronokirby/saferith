@@ -1415,20 +1415,19 @@ func topLimbs(a, b []Word) (Word, Word) {
 	if len(a) != len(b) {
 		panic("topLimbs: mismatched arguments")
 	}
+	// We lookup pairs of elements from top to bottom, until a1 or b1 != 0
 	var a1, a0, b1, b0 Word
-	i := len(a) - 1
-	for ; i > 0; i-- {
-		if (a[i] | b[i]) != 0 {
-			a1 = a[i]
-			a0 = a[i-1]
-			b1 = b[i]
-			b0 = b[i-1]
-			break
-		}
+	done := Choice(0)
+	for i := len(a) - 1; i > 0; i-- {
+		a1 = ctIfElse(done, a1, a[i])
+		a0 = ctIfElse(done, a0, a[i-1])
+		b1 = ctIfElse(done, b1, b[i])
+		b0 = ctIfElse(done, b0, b[i-1])
+		done = 1 ^ ctEq(a1|b1, 0)
 	}
-	if i == 0 {
-		return a[0], b[0]
-	}
+	// Now, we look at the leading zeros to make sure that we're looking at the top
+	// bits completely.
+
 	// Converting to Word avoids a panic check
 	l := Word(leadingZeros(a1 | b1))
 	return (a1 << l) | (a0 >> (_W - l)), (b1 << l) | (b0 >> (_W - l))
@@ -1443,8 +1442,8 @@ func topLimbs(a, b []Word) (Word, Word) {
 //
 // The recipient Nat is used only for scratch space.
 func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Word) {
-	k := _W >> 1
-	kMask := Word((1 << (k - 1)) - 1)
+	const k = _W >> 1
+	const kMask = Word((1 << (k - 1)) - 1)
 
 	x := new(Nat)
 	x.announced = announced
@@ -1460,15 +1459,6 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 
 	iterations := ((2*announced - 1) + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
-		aLen := a.TrueLen()
-		bLen := b.TrueLen()
-		n := aLen
-		if bLen > n {
-			n = bLen
-		}
-		if _W > n {
-			n = _W
-		}
 		aBar := a.limbs[0]
 		bBar := b.limbs[0]
 		if len(a.limbs) > 1 && len(b.limbs) > 1 {
