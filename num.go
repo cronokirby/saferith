@@ -279,17 +279,6 @@ func (z *Nat) AnnouncedLen() int {
 	return z.announced
 }
 
-// leadingZeros calculates the number of leading zero bits in x.
-//
-// This shouldn't leak any information about the value of x.
-func leadingZeros(x Word) int {
-	// Go will replace this call with the appropriate instruction on amd64 and arm64.
-	//
-	// Unfortunately, the fallback function is not constant-time, but the platforms
-	// for which there is no fallback aren't all that common anyways.
-	return bits.LeadingZeros(uint(x))
-}
-
 // TrueLen calculates the exact number of bits needed to represent z
 //
 // This function violates the standard contract around Nats and announced length.

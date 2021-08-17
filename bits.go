@@ -1,5 +1,7 @@
 package safenum
 
+import "math/bits"
+
 // _WShift can be used to multiply or divide by _W
 //
 // This assumes that _W = 64, 32
@@ -22,4 +24,15 @@ func limbMask(bits int) Word {
 		return allOnes
 	}
 	return ^(allOnes << remaining)
+}
+
+// leadingZeros calculates the number of leading zero bits in x.
+//
+// This shouldn't leak any information about the value of x.
+func leadingZeros(x Word) int {
+	// Go will replace this call with the appropriate instruction on amd64 and arm64.
+	//
+	// Unfortunately, the fallback function is not constant-time, but the platforms
+	// for which there is no fallback aren't all that common anyways.
+	return bits.LeadingZeros(uint(x))
 }
