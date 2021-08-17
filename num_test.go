@@ -2,7 +2,6 @@ package safenum
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -11,7 +10,7 @@ import (
 )
 
 func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, r.Int()&0x9)
+	bytes := make([]byte, r.Int()&0x7F)
 	r.Read(bytes)
 	var n Nat
 	n.SetBytes(bytes)
@@ -19,7 +18,7 @@ func (Nat) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func (Modulus) Generate(r *rand.Rand, size int) reflect.Value {
-	bytes := make([]byte, 1+(r.Int()&0x7))
+	bytes := make([]byte, 1+(r.Int()&0x3F))
 	r.Read(bytes)
 	// Ensure that our number isn't 0, but being even is ok
 	bytes[len(bytes)-1] |= 0b10
@@ -225,11 +224,6 @@ func testLshCompositionIsAdditionOfShifts(x Nat, s1 uint8, s2 uint8) bool {
 	way1.Lsh(way1, uint(s2), -1)
 	way2 := new(Nat).Lsh(&x, uint(s1)+uint(s2), -1)
 	if way1.Eq(way2) != 1 {
-		fmt.Println("x", &x)
-		fmt.Println("s1", s1)
-		fmt.Println("s2", s2)
-		fmt.Println("way1", way1)
-		fmt.Println("way2", way2)
 		return false
 	}
 	return true
@@ -567,10 +561,7 @@ func testModInverseMinusOne(a Nat) bool {
 	one.SetUint64(1)
 	z := new(Nat).Add(&a, &one, -1)
 	m := ModulusFromNat(z)
-	fmt.Println("a", &a)
-	fmt.Println("m", m)
 	z.ModInverse(&a, m)
-	fmt.Println("z", z)
 	if !z.checkInvariants() {
 		return false
 	}
@@ -743,10 +734,6 @@ func testMultiplyThenDivide(x Nat, m Modulus) bool {
 	xm := new(Nat).Mul(&x, mNat, x.AnnouncedLen()+mNat.AnnouncedLen())
 	divided := new(Nat).Div(xm, &m, x.AnnouncedLen())
 	if divided.Eq(&x) != 1 {
-		fmt.Println("x", &x)
-		fmt.Println("m", &m)
-		fmt.Println("xm", xm)
-		fmt.Println("divided", divided)
 		return false
 	}
 	// Adding m - 1 shouldn't change the result either
@@ -911,14 +898,16 @@ func TestModInverseExamples(t *testing.T) {
 	if x.Eq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
-}
-
-func TestModInverseExamples2(t *testing.T) {
-	x, _ := new(Nat).SetHex("930330931B69B44B8E")
-	m, _ := ModulusFromHex("930330931B69B44B8F")
-	z := new(Nat).ModInverse(x, m)
-	fmt.Println("z", z)
-	if x.Eq(z) != 1 {
+	x.SetHex("2AFAE74A613B0764098D86")
+	m, _ = ModulusFromHex("2AFAE74A613B0764098D87")
+	z.ModInverse(&x, m)
+	if x.Eq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetHex("930330931B69B44B8E")
+	m, _ = ModulusFromHex("930330931B69B44B8F")
+	z.ModInverse(&x, m)
+	if x.Eq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
