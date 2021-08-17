@@ -1356,35 +1356,49 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
-func (z *Nat) mixAndShift(a, b *Nat, alpha, beta Word) (Word, Word) {
-	k := _W >> 1
-	aInt := new(Int).SetNat(a)
-	bInt := new(Int).SetNat(b)
-	alphaNeg := Choice(alpha >> (_W - 1))
-	alphaAbs := alpha
-	if alphaNeg == 1 {
-		alphaAbs = -alphaAbs
+func mixAndShift(a, b []Word, alpha, beta Word) (Choice, []Word) {
+	if len(a) != len(b) {
+		panic("mixAndShift: mismatched arguments")
 	}
-	alphaInt := new(Int).SetUint64(uint64(alphaAbs))
-	alphaInt.Neg(alphaNeg)
-	betaNeg := Choice(beta >> (_W - 1))
-	betaAbs := beta
-	if betaNeg == 1 {
-		betaAbs = -betaAbs
-	}
-	betaInt := new(Int).SetUint64(uint64(betaAbs))
-	betaInt.Neg(betaNeg)
 
-	out := new(Int).Mul(aInt, alphaInt, -1)
-	out.Add(out, new(Int).Mul(bInt, betaInt, -1), -1)
+	size := len(a)
 
-	z.SetNat(out.Abs())
-	if out.IsNegative() == 1 {
-		alpha = -alpha
-		beta = -beta
+	// Get the sign and absolute value for alpha
+	alphaNeg := alpha >> (_W - 1)
+	alpha = (alpha ^ -alphaNeg) + alphaNeg
+	// Get the sign and absolute value for beta
+	betaNeg := beta >> (_W - 1)
+	beta = (beta ^ -betaNeg) + betaNeg
+
+	// Multiply by absolute values
+	aInt := make([]Word, size+1)
+	var cc Word
+	for i := 0; i < len(a); i++ {
+		cc, aInt[i] = mulAddWWW_g(alpha, a[i], cc)
 	}
-	z.Rsh(z, uint(k-1), -1)
-	return alpha, beta
+	aInt[len(aInt)-1] = cc
+
+	bInt := make([]Word, size+1)
+	cc = 0
+	for i := 0; i < len(b); i++ {
+		cc, bInt[i] = mulAddWWW_g(beta, b[i], cc)
+	}
+	bInt[len(bInt)-1] = cc
+	// Conditionally negate, using a two's complement with an extra _W / 2 bits
+	const mask = (1 << (_W / 2)) - 1
+	negateTwos(Choice(alphaNeg), aInt)
+	aInt[len(aInt)-1] &= mask
+	negateTwos(Choice(betaNeg), bInt)
+	bInt[len(bInt)-1] &= mask
+	// Add results
+	out := make([]Word, size+1)
+	addVV(out, a, b)
+	out[len(out)-1] &= mask
+	outNeg := Choice(out[len(out)-1] >> (_W/2 - 1))
+	negateTwos(outNeg, out)
+	shrVU(out, out, (_W/2 - 1))
+
+	return outNeg, out[:size]
 }
 
 func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
@@ -1486,13 +1500,22 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 			f1 <<= 1
 			g1 <<= 1
 		}
-		tmp := new(Nat)
-		f0, g0 = tmp.mixAndShift(a, b, f0, g0)
-		tmp.Resize(announced)
-		f1, g1 = b.mixAndShift(a, b, f1, g1)
+		aNeg, newA := mixAndShift(a.limbs, b.limbs, f0, g0)
+		if aNeg == 1 {
+			f0 = -f0
+			g0 = -g0
+		}
+		bNeg, newB := mixAndShift(a.limbs, b.limbs, f1, g1)
+		if bNeg == 1 {
+			f1 = -f1
+			g1 = -g1
+		}
+		a.limbs = newA
+		b.limbs = newB
+		a.Resize(announced)
 		b.Resize(announced)
-		a.SetNat(tmp)
 
+		tmp := new(Nat)
 		tmp.mixAndReduce(u, v, f0, g0, m)
 		tmp.Resize(announced)
 		v.mixAndReduce(u, v, f1, g1, m)

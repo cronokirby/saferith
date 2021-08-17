@@ -246,12 +246,11 @@ func negateTwos(doit Choice, z []Word) {
 	if len(z) <= 0 {
 		return
 	}
-	flip := ctIfElse(doit, ^Word(0), 0)
-	add := ctIfElse(doit, 1, 0)
-	zi, carry := bits.Add(uint(flip^z[0]), uint(add), 0)
+	sign := Word(doit)
+	zi, carry := bits.Add(uint(-sign^z[0]), uint(sign), 0)
 	z[0] = Word(zi)
 	for i := 1; i < len(z); i++ {
-		zi, carry = bits.Add(uint(flip^z[i]), 0, carry)
+		zi, carry = bits.Add(uint(-sign^z[i]), 0, carry)
 		z[i] = Word(zi)
 	}
 }
