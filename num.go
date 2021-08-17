@@ -1410,6 +1410,30 @@ func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
 	z.SetNat(out.Mod(ModulusFromNat(m)))
 }
 
+func topLimbs(a, b []Word) (Word, Word) {
+	// explicitly checking this avoids indexing checks later too
+	if len(a) != len(b) {
+		panic("topLimbs: mismatched arguments")
+	}
+	var a1, a0, b1, b0 Word
+	i := len(a) - 1
+	for ; i > 0; i-- {
+		if (a[i] | b[i]) != 0 {
+			a1 = a[i]
+			a0 = a[i-1]
+			b1 = b[i]
+			b0 = b[i-1]
+			break
+		}
+	}
+	if i == 0 {
+		return a[0], b[0]
+	}
+	// Converting to Word avoids a panic check
+	l := Word(leadingZeros(a1 | b1))
+	return (a1 << l) | (a0 >> (_W - l)), (b1 << l) | (b0 >> (_W - l))
+}
+
 // invert calculates and returns v s.t. vx = 1 mod m, and a flag indicating success.
 //
 // This function assumes that m is and odd number, but doesn't assume
@@ -1448,8 +1472,9 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 		aBar := a.limbs[0]
 		bBar := b.limbs[0]
 		if len(a.limbs) > 1 && len(b.limbs) > 1 {
-			aBar = (kMask & aBar) | (^kMask & (new(Nat).Rsh(a, uint(n-_W), _W).limbs[0]))
-			bBar = (kMask & bBar) | (^kMask & (new(Nat).Rsh(b, uint(n-_W), _W).limbs[0]))
+			aTop, bTop := topLimbs(a.limbs, b.limbs)
+			aBar = (kMask & aBar) | (^kMask & aTop)
+			bBar = (kMask & bBar) | (^kMask & bTop)
 		}
 
 		f0 := Word(1)

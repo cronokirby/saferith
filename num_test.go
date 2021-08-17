@@ -223,10 +223,7 @@ func testLshCompositionIsAdditionOfShifts(x Nat, s1 uint8, s2 uint8) bool {
 	way1 := new(Nat).Lsh(&x, uint(s1), -1)
 	way1.Lsh(way1, uint(s2), -1)
 	way2 := new(Nat).Lsh(&x, uint(s1)+uint(s2), -1)
-	if way1.Eq(way2) != 1 {
-		return false
-	}
-	return true
+	return way1.Eq(way2) == 1
 }
 
 func TestLshCompositionIsAdditionOfShifts(t *testing.T) {
