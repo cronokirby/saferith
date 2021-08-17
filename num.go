@@ -1445,14 +1445,6 @@ func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
 func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Word) {
 	k := _W >> 1
 	kMask := Word((1 << (k - 1)) - 1)
-	bitsInLastLimb := Word(announced % _W)
-	if bitsInLastLimb == 0 {
-		bitsInLastLimb = _W
-	}
-	n := announced
-	if _W > n {
-		n = _W
-	}
 
 	x := new(Nat)
 	x.announced = announced
@@ -1466,7 +1458,7 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 	b := new(Nat).SetNat(m).Resize(announced)
 	v := new(Nat).Resize(announced)
 
-	iterations := ((2*announced - 1) + k - 1) / k
+	iterations := ((2*announced - 1) + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
 		aLen := a.TrueLen()
 		bLen := b.TrueLen()
@@ -1515,10 +1507,6 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 		v.mixAndReduce(u, v, f1, g1, m)
 		v.Resize(announced)
 		u.SetNat(tmp)
-
-		mMod := ModulusFromNat(m)
-		expected := new(Nat).Lsh(b, uint(k-1), -1)
-		expected.Mod(expected, mMod)
 	}
 
 	for i := 0; i < iterations*(k-1); i++ {
