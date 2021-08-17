@@ -1381,7 +1381,6 @@ func (z *Nat) EqZero() Choice {
 }
 
 func (z *Nat) mixAndShift(a, b *Nat, alpha, beta Word) (Word, Word) {
-	fmt.Printf("  mixAndShift a %v b %v alpha %X beta %X\n", a, b, alpha, beta)
 	k := _W >> 1
 	aInt := new(Int).SetNat(a)
 	bInt := new(Int).SetNat(b)
@@ -1399,11 +1398,9 @@ func (z *Nat) mixAndShift(a, b *Nat, alpha, beta Word) (Word, Word) {
 	}
 	betaInt := new(Int).SetUint64(uint64(betaAbs))
 	betaInt.Neg(betaNeg)
-	fmt.Println("    alphaInt", alphaInt, "betaInt", betaInt)
 
 	out := new(Int).Mul(aInt, alphaInt, -1)
 	out.Add(out, new(Int).Mul(bInt, betaInt, -1), -1)
-	fmt.Println("    res:", out)
 
 	z.SetNat(out.Abs())
 	if out.IsNegative() == 1 {
@@ -1411,12 +1408,10 @@ func (z *Nat) mixAndShift(a, b *Nat, alpha, beta Word) (Word, Word) {
 		beta = -beta
 	}
 	z.Rsh(z, uint(k-1), -1)
-	fmt.Printf("    res: %v, alpha %X beta %X\n", z, alpha, beta)
 	return alpha, beta
 }
 
 func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
-	fmt.Printf("  mixAndReduce a %v b %v alpha %X beta %X m %v\n", a, b, alpha, beta, m)
 	aInt := new(Int).SetNat(a)
 	bInt := new(Int).SetNat(b)
 	alphaNeg := Choice(alpha >> (_W - 1))
@@ -1433,13 +1428,10 @@ func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
 	}
 	betaInt := new(Int).SetUint64(uint64(betaAbs))
 	betaInt.Neg(betaNeg)
-	fmt.Println("    alphaInt", alphaInt, "betaInt", betaInt)
 
 	out := new(Int).Mul(aInt, alphaInt, -1)
 	out.Add(out, new(Int).Mul(bInt, betaInt, -1), -1)
-	fmt.Println("    res:", out)
 	z.SetNat(out.Mod(ModulusFromNat(m)))
-	fmt.Printf("    res: %v\n", z)
 }
 
 // invert calculates and returns v s.t. vx = 1 mod m, and a flag indicating success.
@@ -1452,6 +1444,11 @@ func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
 // The recipient Nat is used only for scratch space.
 func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Word) {
 	k := _W >> 1
+	kMask := Word((1 << (k - 1)) - 1)
+	bitsInLastLimb := Word(announced % _W)
+	if bitsInLastLimb == 0 {
+		bitsInLastLimb = _W
+	}
 	n := announced
 	if _W > n {
 		n = _W
@@ -1463,32 +1460,34 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 	m := new(Nat)
 	m.announced = announced
 	m.limbs = mLimbs
-	fmt.Println("x", x)
-	fmt.Println("m", m)
 
 	a := new(Nat).SetNat(x).Resize(announced)
 	u := new(Nat).SetUint64(1).Resize(announced)
 	b := new(Nat).SetNat(m).Resize(announced)
 	v := new(Nat).Resize(announced)
-	fmt.Println("--")
-	fmt.Println("  a", a)
-	fmt.Println("  b", b)
-	fmt.Println("  u", u)
-	fmt.Println("  v", v)
 
-	iterations := ((2*announced - 1) + k - 2) / (k - 1)
+	iterations := ((2*announced - 1) + k - 1) / k
 	for i := 0; i < iterations; i++ {
-		aBar := a.limbs[0]&((1<<(k-1))-1) | (a.limbs[len(a.limbs)-1] >> (_W - (k + 1)) << (k - 1))
-		bBar := b.limbs[0]&((1<<(k-1))-1) | (b.limbs[len(b.limbs)-1] >> (_W - (k + 1)) << (k - 1))
+		aLen := a.TrueLen()
+		bLen := b.TrueLen()
+		n := aLen
+		if bLen > n {
+			n = bLen
+		}
+		if _W > n {
+			n = _W
+		}
+		aBar := a.limbs[0]
+		bBar := b.limbs[0]
+		if len(a.limbs) > 1 && len(b.limbs) > 1 {
+			aBar = (kMask & aBar) | (^kMask & (new(Nat).Rsh(a, uint(n-_W), _W).limbs[0]))
+			bBar = (kMask & bBar) | (^kMask & (new(Nat).Rsh(b, uint(n-_W), _W).limbs[0]))
+		}
 
 		f0 := Word(1)
 		g0 := Word(0)
 		f1 := Word(0)
 		g1 := Word(1)
-		fmt.Printf("  --\n")
-		fmt.Printf("    aBar %X\n", aBar)
-		fmt.Printf("    bBar %X\n", bBar)
-		fmt.Printf("    f0 %X g0 %X f1 %X g1 %X\n", f0, g0, f1, g1)
 		for j := 0; j < k-1; j++ {
 			if aBar&1 == 0 {
 				aBar >>= 1
@@ -1503,10 +1502,6 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 			}
 			f1 <<= 1
 			g1 <<= 1
-			fmt.Printf("  --\n")
-			fmt.Printf("    aBar %X\n", aBar)
-			fmt.Printf("    bBar %X\n", bBar)
-			fmt.Printf("    f0 %X g0 %X f1 %X g1 %X\n", f0, g0, f1, g1)
 		}
 		tmp := new(Nat)
 		f0, g0 = tmp.mixAndShift(a, b, f0, g0)
@@ -1521,20 +1516,10 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 		v.Resize(announced)
 		u.SetNat(tmp)
 
-		fmt.Println("--")
 		mMod := ModulusFromNat(m)
-		fmt.Println("  a", a)
-		fmt.Println("    ux", new(Nat).ModMul(u, x, mMod))
-		fmt.Println("  b", b)
-		fmt.Println("  u", u)
-		fmt.Println("  v", v)
 		expected := new(Nat).Lsh(b, uint(k-1), -1)
 		expected.Mod(expected, mMod)
-		fmt.Println("    vx", new(Nat).ModMul(v, x, mMod), "(expected)", expected)
 	}
-	fmt.Println("--")
-	fmt.Println("v", v)
-	fmt.Println("iterations * (k - 1)", iterations*(k-1))
 
 	for i := 0; i < iterations*(k-1); i++ {
 		if v.limbs[0]&1 == 0 {
@@ -1544,7 +1529,6 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 			v.Rsh(v, 1, announced)
 		}
 	}
-	fmt.Printf("v %+v\n\n", v)
 
 	one := make([]Word, len(b.limbs))
 	one[0] = 1
