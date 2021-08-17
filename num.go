@@ -1385,7 +1385,8 @@ func mixAndShift(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	}
 	bInt[len(bInt)-1] = cc
 	// Conditionally negate, using a two's complement with an extra _W / 2 bits
-	const mask = (1 << (_W / 2)) - 1
+	const extraBits = (_W / 2) + 1
+	const mask = (1 << extraBits) - 1
 	negateTwos(Choice(alphaNeg), aInt)
 	aInt[len(aInt)-1] &= mask
 	negateTwos(Choice(betaNeg), bInt)
@@ -1394,7 +1395,7 @@ func mixAndShift(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	out := make([]Word, size+1)
 	addVV(out, a, b)
 	out[len(out)-1] &= mask
-	outNeg := Choice(out[len(out)-1] >> (_W/2 - 1))
+	outNeg := Choice(out[len(out)-1] >> (extraBits - 1))
 	negateTwos(outNeg, out)
 	shrVU(out, out, (_W/2 - 1))
 
