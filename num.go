@@ -41,8 +41,8 @@ func ctEq(x, y Word) Choice {
 //
 // This doesn't leak any information about either of them
 func ctGt(x, y Word) Choice {
-	z := y - x
-	return Choice((z ^ ((x ^ y) & (x ^ z))) >> (_W - 1))
+	_, b := bits.Sub(uint(y), uint(x), 0)
+	return Choice(b)
 }
 
 // ctIfElse selects x if v = 1, and y otherwise
@@ -283,24 +283,11 @@ func (z *Nat) AnnouncedLen() int {
 //
 // This shouldn't leak any information about the value of x.
 func leadingZeros(x Word) int {
-	stillZero := Choice(1)
-	leadingZeroBytes := Word(0)
-	for i := _W - 8; i >= 0; i -= 8 {
-		stillZero &= ctEq((x>>i)&0xFF, 0)
-		leadingZeroBytes += Word(stillZero)
-	}
-	leadingZeroBits := Word(0)
-	bytesPerLimb := Word(_W / 8)
-	// This means that there's a byte that might have some zeros in it
-	if leadingZeroBytes < bytesPerLimb {
-		firstNonZeroByte := (x >> (8 * (bytesPerLimb - 1 - leadingZeroBytes))) & 0xFF
-		stillZero = Choice(1)
-		for i := 7; i >= 0; i-- {
-			stillZero &= ctEq((firstNonZeroByte>>i)&0b1, 0)
-			leadingZeroBits += Word(stillZero)
-		}
-	}
-	return int(8*leadingZeroBytes + leadingZeroBits)
+	// Go will replace this call with the appropriate instruction on amd64 and arm64.
+	//
+	// Unfortunately, the fallback function is not constant-time, but the platforms
+	// for which there is no fallback aren't all that common anyways.
+	return bits.LeadingZeros(uint(x))
 }
 
 // TrueLen calculates the exact number of bits needed to represent z
