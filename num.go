@@ -62,6 +62,9 @@ func ctIfElse(v Choice, x, y Word) Word {
 //
 // Otherwise, which branch was taken isn't leaked
 func ctCondCopy(v Choice, x, y []Word) {
+	if len(x) != len(y) {
+		panic("ctCondCopy: mismatched arguments")
+	}
 	for i := 0; i < len(x); i++ {
 		x[i] = ctIfElse(v, y[i], x[i])
 	}
@@ -762,6 +765,19 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	ctCondCopy(over, z, scratch)
 	q += Word(over)
 	return
+}
+
+func shiftAddInGeneric(z, scratch []Word, x Word, xSize int, m []Word) Word {
+	var q Word
+	for j := xSize - 1; j >= 0; j-- {
+		shiftCarry := shlVU(z, z, 1)
+		z[0] |= (x >> j) & 1
+		subCarry := subVV(scratch, z, m)
+		sel := ctEq(shiftCarry, subCarry)
+		ctCondCopy(sel, z, scratch)
+		q = (q << 1) | Word(sel)
+	}
+	return q
 }
 
 // Mod calculates z <- x mod m
@@ -1495,13 +1511,21 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 		copy(b, newB)
 
 		uNeg, newU := mixSigned(u, v, f0, g0)
-		vNeg, newV := mixSigned(u, v, f1, g1)
-		newU = divDouble(newU, m, nil)
-		newV = divDouble(newV, m, nil)
+		u0 := newU[0]
+		shrVU(newU, newU, k)
+		newU = newU[:size]
+		shiftAddInGeneric(newU, scratch, u0, k, m)
 		subVV(scratch, m, newU)
 		ctCondCopy(uNeg&(1^cmpZero(newU)), newU, scratch)
+
+		vNeg, newV := mixSigned(u, v, f1, g1)
+		v0 := newV[0]
+		shrVU(newV, newV, k)
+		newV = newV[:size]
+		shiftAddInGeneric(newV, scratch, v0, k, m)
 		subVV(scratch, m, newV)
 		ctCondCopy(vNeg&(1^cmpZero(newV)), newV, scratch)
+
 		copy(u, newU)
 		copy(v, newV)
 	}
@@ -1623,23 +1647,11 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 	}
 
 	for ; i >= 0; i-- {
-		// out can alias x, because we recover x[i] early
-		xi := x[i]
+		oi := shiftAddInGeneric(r, scratch, x[i], _W, d)
 		// Hopefully the branch predictor can make these checks not too expensive,
 		// otherwise we'll have to duplicate the routine
 		if out != nil {
-			out[i] = 0
-		}
-		for j := _W - 1; j >= 0; j-- {
-			xij := (xi >> j) & 1
-			shiftCarry := shlVU(r, r, 1)
-			r[0] |= xij
-			subCarry := subVV(scratch, r, d)
-			sel := ctEq(shiftCarry, subCarry)
-			ctCondCopy(sel, r, scratch)
-			if len(out) > 0 {
-				out[i] = ((out[i] << 1) | Word(sel))
-			}
+			out[i] = oi
 		}
 	}
 	return r
