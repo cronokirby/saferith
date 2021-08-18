@@ -1393,7 +1393,7 @@ func mixAndShift(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	bInt[len(bInt)-1] &= mask
 	// Add results
 	out := make([]Word, size+1)
-	addVV(out, a, b)
+	addVV(out, aInt, bInt)
 	out[len(out)-1] &= mask
 	outNeg := Choice(out[len(out)-1] >> (extraBits - 1))
 	negateTwos(outNeg, out)
