@@ -1372,13 +1372,7 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
-func mixSigned(a, b []Word, alpha, beta Word) (Choice, []Word) {
-	if len(a) != len(b) {
-		panic("mixSigned: mismatched arguments")
-	}
-
-	size := len(a)
-
+func mixSigned(out, scratch, a, b []Word, alpha, beta Word) Choice {
 	// Get the sign and absolute value for alpha
 	alphaNeg := alpha >> (_W - 1)
 	alpha = (alpha ^ -alphaNeg) + alphaNeg
@@ -1387,35 +1381,32 @@ func mixSigned(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	beta = (beta ^ -betaNeg) + betaNeg
 
 	// Multiply by absolute values
-	aInt := make([]Word, size+1)
 	var cc Word
 	for i := 0; i < len(a); i++ {
-		cc, aInt[i] = mulAddWWW_g(alpha, a[i], cc)
+		cc, out[i] = mulAddWWW_g(alpha, a[i], cc)
 	}
-	aInt[len(aInt)-1] = cc
+	out[len(out)-1] = cc
 
-	bInt := make([]Word, size+1)
 	cc = 0
 	for i := 0; i < len(b); i++ {
-		cc, bInt[i] = mulAddWWW_g(beta, b[i], cc)
+		cc, scratch[i] = mulAddWWW_g(beta, b[i], cc)
 	}
-	bInt[len(bInt)-1] = cc
+	scratch[len(scratch)-1] = cc
 	// Conditionally negate, using a two's complement with an extra _W / 2 bits
 	const extraBits = (_W / 2) + 1
 	const mask = (1 << extraBits) - 1
-	negateTwos(Choice(alphaNeg), aInt)
-	aInt[len(aInt)-1] &= mask
-	negateTwos(Choice(betaNeg), bInt)
-	bInt[len(bInt)-1] &= mask
+	negateTwos(Choice(alphaNeg), out)
+	out[len(out)-1] &= mask
+	negateTwos(Choice(betaNeg), scratch)
+	scratch[len(scratch)-1] &= mask
 	// Add results
-	out := make([]Word, size+1)
-	addVV(out, aInt, bInt)
+	addVV(out, out, scratch)
 	out[len(out)-1] &= mask
 	outNeg := Choice(out[len(out)-1] >> (extraBits - 1))
 	negateTwos(outNeg, out)
 	out[len(out)-1] &= mask
 
-	return outNeg, out
+	return outNeg
 }
 
 func topLimbs(a, b []Word) (Word, Word) {
@@ -1464,7 +1455,9 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 	u := make([]Word, size)
 	u[0] = 1
 	v := make([]Word, size)
-	scratch := make([]Word, size)
+	scratch1 := make([]Word, size+1)
+	scratch2 := make([]Word, size+1)
+	scratch3 := make([]Word, size)
 
 	iterations := ((2*announced - 1) + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
@@ -1495,39 +1488,38 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 			f1 <<= 1
 			g1 <<= 1
 		}
-		aNeg, newA := mixSigned(a, b, f0, g0)
-		shrVU(newA, newA, k-1)
+		aNeg := mixSigned(scratch1, scratch2, a, b, f0, g0)
+		shrVU(scratch1, scratch1, k-1)
 		if aNeg == 1 {
 			f0 = -f0
 			g0 = -g0
 		}
-		bNeg, newB := mixSigned(a, b, f1, g1)
-		shrVU(newB, newB, k-1)
+		copy(scratch3, scratch1)
+		bNeg := mixSigned(scratch1, scratch2, a, b, f1, g1)
+		shrVU(scratch1, scratch1, k-1)
 		if bNeg == 1 {
 			f1 = -f1
 			g1 = -g1
 		}
-		copy(a, newA)
-		copy(b, newB)
+		copy(b, scratch1)
+		copy(a, scratch3)
 
-		uNeg, newU := mixSigned(u, v, f0, g0)
-		u0 := newU[0]
-		shrVU(newU, newU, k)
-		newU = newU[:size]
-		shiftAddInGeneric(newU, scratch, u0, k, m)
-		subVV(scratch, m, newU)
-		ctCondCopy(uNeg&(1^cmpZero(newU)), newU, scratch)
+		uNeg := mixSigned(scratch1, scratch2, u, v, f0, g0)
+		u0 := scratch1[0]
+		shrVU(scratch1, scratch1, k)
+		copy(scratch3, scratch1)
+		shiftAddInGeneric(scratch3, scratch2[:size], u0, k, m)
+		subVV(scratch2[:size], m, scratch3)
+		ctCondCopy(uNeg&(1^cmpZero(scratch3)), scratch3, scratch2[:size])
 
-		vNeg, newV := mixSigned(u, v, f1, g1)
-		v0 := newV[0]
-		shrVU(newV, newV, k)
-		newV = newV[:size]
-		shiftAddInGeneric(newV, scratch, v0, k, m)
-		subVV(scratch, m, newV)
-		ctCondCopy(vNeg&(1^cmpZero(newV)), newV, scratch)
-
-		copy(u, newU)
-		copy(v, newV)
+		vNeg := mixSigned(scratch1, scratch2, u, v, f1, g1)
+		copy(u, scratch3)
+		v0 := scratch1[0]
+		shrVU(scratch1, scratch1, k)
+		copy(v, scratch1)
+		shiftAddInGeneric(v, scratch3, v0, k, m)
+		subVV(scratch3, m, v)
+		ctCondCopy(vNeg&(1^cmpZero(v)), v, scratch3)
 	}
 
 	halfM := make([]Word, size+1)
@@ -1538,8 +1530,8 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 
 	for i := 0; i < iterations*(k-1); i++ {
 		vOdd := Choice(shrVU(v, v, 1) >> (_W - 1))
-		addVV(scratch, v, halfM)
-		ctCondCopy(vOdd, v, scratch)
+		addVV(scratch3, v, halfM)
+		ctCondCopy(vOdd, v, scratch3)
 	}
 
 	return cmpZero(b[1:]) & ctEq(1, b[0]), v
