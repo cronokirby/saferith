@@ -705,6 +705,34 @@ func (m *Modulus) Cmp(n *Modulus) (Choice, Choice, Choice) {
 	return m.nat.Cmp(&n.nat)
 }
 
+func shiftAddInCommon(z, scratch, m []Word, hi, a1, a0, b0 Word) (q Word) {
+	// We want to use a1:a0 / b0 - 1 as our estimate. If rawQ is 0, we should
+	// use 0 as our estimate. Another edge case when an overflow happens in the quotient.
+	// It can be shown that this happens when a1 == b0. In this case, we want
+	// to use the maximum value for q
+	rawQ, _ := div(a1, a0, b0)
+	q = ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
+
+	// This estimate is off by +- 1, so we subtract q * m, and then either add
+	// or subtract m, based on the result.
+	c := mulSubVVW(z, m, q)
+	// If the carry from subtraction is greater than the limb of z we've shifted out,
+	// then we've underflowed, and need to add in m
+	under := ctGt(c, hi)
+	// For us to be too large, we first need to not be too low, as per the previous flag.
+	// Then, if the lower limbs of z are still larger, or the top limb of z is equal to the carry,
+	// we can conclude that we're too large, and need to subtract m
+	stillBigger := cmpGeq(z, m)
+	over := (1 ^ under) & (stillBigger | (1 ^ ctEq(c, hi)))
+	addVV(scratch, z, m)
+	ctCondCopy(under, z, scratch)
+	q -= Word(under)
+	subVV(scratch, z, m)
+	ctCondCopy(over, z, scratch)
+	q += Word(over)
+	return
+}
+
 // shiftAddIn calculates z = z << _W + x mod m
 //
 // The length of z and scratch should be len(m)
@@ -740,44 +768,50 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	a0 := (z[size-1] << m.leading) | (z[size-2] >> (_W - m.leading))
 	b0 := (m.nat.limbs[size-1] << m.leading) | (m.nat.limbs[size-2] >> (_W - m.leading))
 
-	// We want to use a1:a0 / b0 - 1 as our estimate. If rawQ is 0, we should
-	// use 0 as our estimate. Another edge case when an overflow happens in the quotient.
-	// It can be shown that this happens when a1 == b0. In this case, we want
-	// to use the maximum value for q
-	rawQ, _ := div(a1, a0, b0)
-	q = ctIfElse(ctEq(a1, b0), ^Word(0), ctIfElse(ctEq(rawQ, 0), 0, rawQ-1))
-
-	// This estimate is off by +- 1, so we subtract q * m, and then either add
-	// or subtract m, based on the result.
-	c := mulSubVVW(z, m.nat.limbs, q)
-	// If the carry from subtraction is greater than the limb of z we've shifted out,
-	// then we've underflowed, and need to add in m
-	under := ctGt(c, hi)
-	// For us to be too large, we first need to not be too low, as per the previous flag.
-	// Then, if the lower limbs of z are still larger, or the top limb of z is equal to the carry,
-	// we can conclude that we're too large, and need to subtract m
-	stillBigger := cmpGeq(z, m.nat.limbs)
-	over := (1 ^ under) & (stillBigger | (1 ^ ctEq(c, hi)))
-	addVV(scratch, z, m.nat.limbs)
-	ctCondCopy(under, z, scratch)
-	q -= Word(under)
-	subVV(scratch, z, m.nat.limbs)
-	ctCondCopy(over, z, scratch)
-	q += Word(over)
-	return
+	return shiftAddInCommon(z, scratch, m.nat.limbs, hi, a1, a0, b0)
 }
 
 func shiftAddInGeneric(z, scratch []Word, x Word, m []Word) Word {
-	var q Word
-	for j := _W - 1; j >= 0; j-- {
-		shiftCarry := shlVU(z, z, 1)
-		z[0] |= (x >> j) & 1
-		subCarry := subVV(scratch, z, m)
-		sel := ctEq(shiftCarry, subCarry)
-		ctCondCopy(sel, z, scratch)
-		q = (q << 1) | Word(sel)
+	size := len(m)
+	if size == 0 {
+		return 0
 	}
-	return q
+	if size == 1 {
+		// In this case, z:x (/, %) m is exactly what we need to calculate
+		q, r := div(z[0], x, m[0])
+		z[0] = r
+		return q
+	}
+
+	var a2, a1, a0, b1, b0 Word
+	done := Choice(0)
+	for i := size - 1; i > 1; i-- {
+		a2 = ctIfElse(done, a2, z[i])
+		a1 = ctIfElse(done, a1, z[i-1])
+		a0 = ctIfElse(done, a0, z[i-2])
+		b1 = ctIfElse(done, b1, m[i])
+		b0 = ctIfElse(done, b0, m[i-1])
+		done = 1 ^ ctEq(b1, 0)
+	}
+
+	a2 = ctIfElse(done, a2, z[1])
+	a1 = ctIfElse(done, a1, z[0])
+	a0 = ctIfElse(done, a0, x)
+	b1 = ctIfElse(done, b1, m[1])
+	b0 = ctIfElse(done, b0, m[0])
+	// Converting to Word avoids a panic check
+	l := Word(leadingZeros(b1))
+	a2 = (a2 << l) | (a1 >> (_W - l))
+	a1 = (a1 << l) | (a0 >> (_W - l))
+	b1 = (b1 << l) | (b0 >> (_W - l))
+
+	hi := z[len(z)-1]
+	for i := size - 1; i > 0; i-- {
+		z[i] = z[i-1]
+	}
+	z[0] = x
+
+	return shiftAddInCommon(z, scratch, m, hi, a2, a1, b1)
 }
 
 // Mod calculates z <- x mod m
