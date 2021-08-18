@@ -1433,29 +1433,29 @@ func topLimbs(a, b []Word) (Word, Word) {
 // The slice returned should be copied into the result, and not used directly.
 //
 // The recipient Nat is used only for scratch space.
-func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Word) {
+func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 	const k = _W >> 1
 	const kMask = Word((1 << (k - 1)) - 1)
+	if len(x) != len(m) {
+		panic("invert: mismatched arguments")
+	}
 
-	x := new(Nat)
-	x.announced = announced
-	x.limbs = xLimbs
-	m := new(Nat)
-	m.announced = announced
-	m.limbs = mLimbs
-
-	a := new(Nat).SetNat(x).Resize(announced)
-	u := new(Nat).SetUint64(1).Resize(announced)
-	b := new(Nat).SetNat(m).Resize(announced)
-	v := new(Nat).Resize(announced)
-	scratch := make([]Word, len(mLimbs))
+	size := len(m)
+	a := make([]Word, size)
+	copy(a, x)
+	b := make([]Word, size)
+	copy(b, m)
+	u := make([]Word, size)
+	u[0] = 1
+	v := make([]Word, size)
+	scratch := make([]Word, size)
 
 	iterations := ((2*announced - 1) + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
-		aBar := a.limbs[0]
-		bBar := b.limbs[0]
-		if len(a.limbs) > 1 && len(b.limbs) > 1 {
-			aTop, bTop := topLimbs(a.limbs, b.limbs)
+		aBar := a[0]
+		bBar := b[0]
+		if size > 1 {
+			aTop, bTop := topLimbs(a, b)
 			aBar = (kMask & aBar) | (^kMask & aTop)
 			bBar = (kMask & bBar) | (^kMask & bTop)
 		}
@@ -1479,47 +1479,46 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 			f1 <<= 1
 			g1 <<= 1
 		}
-		aNeg, newA := mixSigned(a.limbs, b.limbs, f0, g0)
+		aNeg, newA := mixSigned(a, b, f0, g0)
 		shrVU(newA, newA, k-1)
 		if aNeg == 1 {
 			f0 = -f0
 			g0 = -g0
 		}
-		bNeg, newB := mixSigned(a.limbs, b.limbs, f1, g1)
+		bNeg, newB := mixSigned(a, b, f1, g1)
 		shrVU(newB, newB, k-1)
 		if bNeg == 1 {
 			f1 = -f1
 			g1 = -g1
 		}
-		a.limbs = newA
-		b.limbs = newB
-		a.Resize(announced)
-		b.Resize(announced)
+		copy(a, newA)
+		copy(b, newB)
 
-		uNeg, newU := mixSigned(u.limbs, v.limbs, f0, g0)
-		newU = divDouble(newU, mLimbs, nil)
-		subVV(scratch, mLimbs, newU)
+		uNeg, newU := mixSigned(u, v, f0, g0)
+		vNeg, newV := mixSigned(u, v, f1, g1)
+		newU = divDouble(newU, m, nil)
+		newV = divDouble(newV, m, nil)
+		subVV(scratch, m, newU)
 		ctCondCopy(uNeg&(1^cmpZero(newU)), newU, scratch)
-		vNeg, newV := mixSigned(u.limbs, v.limbs, f1, g1)
-		newV = divDouble(newV, mLimbs, nil)
-		subVV(scratch, mLimbs, newV)
+		subVV(scratch, m, newV)
 		ctCondCopy(vNeg&(1^cmpZero(newV)), newV, scratch)
-		u.limbs = newU
-		v.limbs = newV
-		u.Resize(announced)
-		v.Resize(announced)
+		copy(u, newU)
+		copy(v, newV)
 	}
+
+	halfM := make([]Word, size+1)
+	halfM[0] = 1
+	addVV(halfM, halfM[:size], m)
+	shrVU(halfM, halfM, 1)
+	halfM = halfM[:size]
 
 	for i := 0; i < iterations*(k-1); i++ {
-		if v.limbs[0]&1 == 0 {
-			v.Rsh(v, 1, announced)
-		} else {
-			v.Add(v, m, -1)
-			v.Rsh(v, 1, announced)
-		}
+		vOdd := Choice(shrVU(v, v, 1) >> (_W - 1))
+		addVV(scratch, v, halfM)
+		ctCondCopy(vOdd, v, scratch)
 	}
 
-	return cmpZero(b.limbs[1:]) & ctEq(1, b.limbs[0]), v.limbs
+	return cmpZero(b[1:]) & ctEq(1, b[0]), v
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
