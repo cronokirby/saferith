@@ -1556,6 +1556,7 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 	copy(scratch1, v)
 	for i := 0; i < totalIterations/k; i++ {
 		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&((1<<k)-1))
+		shrVU(scratch1, scratch1, k)
 	}
 	remaining := totalIterations % k
 	if remaining > 0 {
