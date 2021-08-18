@@ -1397,31 +1397,9 @@ func mixSigned(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	out[len(out)-1] &= mask
 	outNeg := Choice(out[len(out)-1] >> (extraBits - 1))
 	negateTwos(outNeg, out)
+	out[len(out)-1] &= mask
 
 	return outNeg, out
-}
-
-func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
-	aInt := new(Int).SetNat(a)
-	bInt := new(Int).SetNat(b)
-	alphaNeg := Choice(alpha >> (_W - 1))
-	alphaAbs := alpha
-	if alphaNeg == 1 {
-		alphaAbs = -alphaAbs
-	}
-	alphaInt := new(Int).SetUint64(uint64(alphaAbs))
-	alphaInt.Neg(alphaNeg)
-	betaNeg := Choice(beta >> (_W - 1))
-	betaAbs := beta
-	if betaNeg == 1 {
-		betaAbs = -betaAbs
-	}
-	betaInt := new(Int).SetUint64(uint64(betaAbs))
-	betaInt.Neg(betaNeg)
-
-	out := new(Int).Mul(aInt, alphaInt, -1)
-	out.Add(out, new(Int).Mul(bInt, betaInt, -1), -1)
-	z.SetNat(out.Mod(ModulusFromNat(m)))
 }
 
 func topLimbs(a, b []Word) (Word, Word) {
@@ -1470,6 +1448,7 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 	u := new(Nat).SetUint64(1).Resize(announced)
 	b := new(Nat).SetNat(m).Resize(announced)
 	v := new(Nat).Resize(announced)
+	scratch := make([]Word, len(mLimbs))
 
 	iterations := ((2*announced - 1) + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
@@ -1517,12 +1496,18 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 		a.Resize(announced)
 		b.Resize(announced)
 
-		tmp := new(Nat)
-		tmp.mixAndReduce(u, v, f0, g0, m)
-		tmp.Resize(announced)
-		v.mixAndReduce(u, v, f1, g1, m)
+		uNeg, newU := mixSigned(u.limbs, v.limbs, f0, g0)
+		newU = divDouble(newU, mLimbs, nil)
+		subVV(scratch, mLimbs, newU)
+		ctCondCopy(uNeg&(1^cmpZero(newU)), newU, scratch)
+		vNeg, newV := mixSigned(u.limbs, v.limbs, f1, g1)
+		newV = divDouble(newV, mLimbs, nil)
+		subVV(scratch, mLimbs, newV)
+		ctCondCopy(vNeg&(1^cmpZero(newV)), newV, scratch)
+		u.limbs = newU
+		v.limbs = newV
+		u.Resize(announced)
 		v.Resize(announced)
-		u.SetNat(tmp)
 	}
 
 	for i := 0; i < iterations*(k-1); i++ {
@@ -1617,7 +1602,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 // If out is not empty, it's assumed that x has at most twice the bit length of d,
 // and the quotient can thus fit in a slice the length of d, which out is assumed to be.
 //
-// If out is empty, no quotient is produced, but the remainder is still calculated.
+// If out is nil, no quotient is produced, but the remainder is still calculated.
 // This remainder will be correct regardless of the size difference between x and d.
 func divDouble(x []Word, d []Word, out []Word) []Word {
 	size := len(d)
@@ -1643,7 +1628,7 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 		xi := x[i]
 		// Hopefully the branch predictor can make these checks not too expensive,
 		// otherwise we'll have to duplicate the routine
-		if len(out) > 0 {
+		if out != nil {
 			out[i] = 0
 		}
 		for j := _W - 1; j >= 0; j-- {
@@ -1683,7 +1668,7 @@ func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	size := len(m.nat.limbs)
 	// We want to invert m modulo x, so we first calculate the reduced version, before inverting
 	var newZ Nat
-	newZ.limbs = divDouble(m.nat.limbs, x.limbs, []Word{})
+	newZ.limbs = divDouble(m.nat.limbs, x.limbs, nil)
 	newZ.modInverse(&newZ, x)
 	inverseZero := cmpZero(newZ.limbs)
 	newZ.Mul(&newZ, &m.nat, 2*size*_W)
