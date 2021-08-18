@@ -1534,10 +1534,7 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 		}
 	}
 
-	one := make([]Word, len(b.limbs))
-	one[0] = 1
-
-	return cmpEq(one, b.limbs), v.limbs
+	return cmpZero(b.limbs[1:]) & ctEq(1, b.limbs[0]), v.limbs
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
