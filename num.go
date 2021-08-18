@@ -1392,19 +1392,12 @@ func mixSigned(out, scratch, a, b []Word, alpha, beta Word) Choice {
 		cc, scratch[i] = mulAddWWW_g(beta, b[i], cc)
 	}
 	scratch[len(scratch)-1] = cc
-	// Conditionally negate, using a two's complement with an extra _W / 2 bits
-	const extraBits = (_W / 2) + 1
-	const mask = (1 << extraBits) - 1
 	negateTwos(Choice(alphaNeg), out)
-	out[len(out)-1] &= mask
 	negateTwos(Choice(betaNeg), scratch)
-	scratch[len(scratch)-1] &= mask
 	// Add results
 	addVV(out, out, scratch)
-	out[len(out)-1] &= mask
-	outNeg := Choice(out[len(out)-1] >> (extraBits - 1))
+	outNeg := Choice(out[len(out)-1] >> (_W - 1))
 	negateTwos(outNeg, out)
-	out[len(out)-1] &= mask
 
 	return outNeg
 }
