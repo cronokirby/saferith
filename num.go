@@ -704,7 +704,7 @@ func (m *Modulus) Cmp(n *Modulus) (Choice, Choice, Choice) {
 
 // shiftAddIn calculates z = z << _W + x mod m
 //
-// The length of z and scratch should be len(m) + 1
+// The length of z and scratch should be len(m)
 func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	// Making tests on the exact bit length of m is ok,
 	// since that's part of the contract for moduli
@@ -757,10 +757,10 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	over := (1 ^ under) & (stillBigger | (1 ^ ctEq(c, hi)))
 	addVV(scratch, z, m.nat.limbs)
 	ctCondCopy(under, z, scratch)
-	q = ctIfElse(under, q-1, q)
+	q -= Word(under)
 	subVV(scratch, z, m.nat.limbs)
 	ctCondCopy(over, z, scratch)
-	q = ctIfElse(over, q+1, q)
+	q += Word(over)
 	return
 }
 
