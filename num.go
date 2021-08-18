@@ -1554,24 +1554,13 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 
 	totalIterations := iterations * (k - 1)
 	copy(scratch1, v)
-	const mask32 = (1 << k) - 1
-	for i := 0; i < totalIterations>>_WShift; i++ {
-		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&mask32)
-		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*(scratch1[0]>>k))&mask32)
-		copy(scratch1, scratch1[1:])
+	for i := 0; i < totalIterations/k; i++ {
+		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&((1<<k)-1))
 	}
-	remaining := totalIterations & _WMask
+	remaining := totalIterations % k
 	if remaining > 0 {
-		last0 := scratch1[0]
-		if remaining > k {
-			last0 >>= k
-			scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&mask32)
-		}
-		lastK := remaining % k
-		if lastK > 0 {
-			lastMask := Word((1 << lastK) - 1)
-			scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*last0)&lastMask)
-		}
+		lastMask := Word((1 << remaining) - 1)
+		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&lastMask)
 		shrVU(scratch1, scratch1, uint(remaining))
 	}
 
