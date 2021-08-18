@@ -767,9 +767,9 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	return
 }
 
-func shiftAddInGeneric(z, scratch []Word, x Word, xSize int, m []Word) Word {
+func shiftAddInGeneric(z, scratch []Word, x Word, m []Word) Word {
 	var q Word
-	for j := xSize - 1; j >= 0; j-- {
+	for j := _W - 1; j >= 0; j-- {
 		shiftCarry := shlVU(z, z, 1)
 		z[0] |= (x >> j) & 1
 		subCarry := subVV(scratch, z, m)
@@ -1499,18 +1499,16 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 
 		uNeg := mixSigned(scratch1, scratch2, u, v, f0, g0)
 		u0 := scratch1[0]
-		shrVU(scratch1, scratch1, k)
-		copy(scratch3, scratch1)
-		shiftAddInGeneric(scratch3, scratch2[:size], u0, k, m)
+		copy(scratch3, scratch1[1:])
+		shiftAddInGeneric(scratch3, scratch2[:size], u0, m)
 		subVV(scratch2[:size], m, scratch3)
 		ctCondCopy(uNeg&(1^cmpZero(scratch3)), scratch3, scratch2[:size])
 
 		vNeg := mixSigned(scratch1, scratch2, u, v, f1, g1)
 		copy(u, scratch3)
 		v0 := scratch1[0]
-		shrVU(scratch1, scratch1, k)
-		copy(v, scratch1)
-		shiftAddInGeneric(v, scratch3, v0, k, m)
+		copy(v, scratch1[1:])
+		shiftAddInGeneric(v, scratch3, v0, m)
 		subVV(scratch3, m, v)
 		ctCondCopy(vNeg&(1^cmpZero(v)), v, scratch3)
 	}
@@ -1632,7 +1630,7 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 	}
 
 	for ; i >= 0; i-- {
-		oi := shiftAddInGeneric(r, scratch, x[i], _W, d)
+		oi := shiftAddInGeneric(r, scratch, x[i], d)
 		// Hopefully the branch predictor can make these checks not too expensive,
 		// otherwise we'll have to duplicate the routine
 		if out != nil {
