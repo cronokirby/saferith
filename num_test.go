@@ -907,6 +907,18 @@ func TestModInverseExamples(t *testing.T) {
 	if x.Eq(&z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
+	x.SetHex("DDAB4CDD41300C5F9511FE68")
+	m, _ = ModulusFromHex("DDAB4CDD41300C5F9511FE69")
+	z.ModInverse(&x, m)
+	if x.Eq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetHex("A200F1C011C86FFF9A")
+	m, _ = ModulusFromHex("A200F1C011C86FFF9B")
+	z.ModInverse(&x, m)
+	if x.Eq(&z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
 }
 
 func TestExpExamples(t *testing.T) {
