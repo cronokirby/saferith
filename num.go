@@ -1356,9 +1356,9 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
-func mixAndShift(a, b []Word, alpha, beta Word) (Choice, []Word) {
+func mixSigned(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	if len(a) != len(b) {
-		panic("mixAndShift: mismatched arguments")
+		panic("mixSigned: mismatched arguments")
 	}
 
 	size := len(a)
@@ -1397,9 +1397,8 @@ func mixAndShift(a, b []Word, alpha, beta Word) (Choice, []Word) {
 	out[len(out)-1] &= mask
 	outNeg := Choice(out[len(out)-1] >> (extraBits - 1))
 	negateTwos(outNeg, out)
-	shrVU(out, out, (_W/2 - 1))
 
-	return outNeg, out[:size]
+	return outNeg, out
 }
 
 func (z *Nat) mixAndReduce(a, b *Nat, alpha, beta Word, m *Nat) {
@@ -1501,12 +1500,14 @@ func (z *Nat) invert(announced int, xLimbs []Word, mLimbs []Word) (Choice, []Wor
 			f1 <<= 1
 			g1 <<= 1
 		}
-		aNeg, newA := mixAndShift(a.limbs, b.limbs, f0, g0)
+		aNeg, newA := mixSigned(a.limbs, b.limbs, f0, g0)
+		shrVU(newA, newA, k-1)
 		if aNeg == 1 {
 			f0 = -f0
 			g0 = -g0
 		}
-		bNeg, newB := mixAndShift(a.limbs, b.limbs, f1, g1)
+		bNeg, newB := mixSigned(a.limbs, b.limbs, f1, g1)
+		shrVU(newB, newB, k-1)
 		if bNeg == 1 {
 			f1 = -f1
 			g1 = -g1
