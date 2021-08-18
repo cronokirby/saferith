@@ -874,49 +874,55 @@ func TestModExamples(t *testing.T) {
 }
 
 func TestModInverseExamples(t *testing.T) {
-	var x, z Nat
+	x, z := new(Nat), new(Nat)
 	x.SetUint64(2)
 	m := ModulusFromUint64(13)
-	x = *x.ModInverse(&x, m)
+	x = x.ModInverse(x, m)
 	z.SetUint64(7)
-	if x.Eq(&z) != 1 {
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(16359684999990746055)
 	m = ModulusFromUint64(7)
-	x = *x.ModInverse(&x, m)
+	x = x.ModInverse(x, m)
 	z.SetUint64(3)
-	if x.Eq(&z) != 1 {
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetUint64(461423694560)
 	m = ModulusFromUint64(461423694561)
-	z.ModInverse(&x, m)
-	if x.Eq(&z) != 1 {
+	z.ModInverse(x, m)
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetHex("2AFAE74A613B0764098D86")
 	m, _ = ModulusFromHex("2AFAE74A613B0764098D87")
-	z.ModInverse(&x, m)
-	if x.Eq(&z) != 1 {
+	z.ModInverse(x, m)
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetHex("930330931B69B44B8E")
 	m, _ = ModulusFromHex("930330931B69B44B8F")
-	z.ModInverse(&x, m)
-	if x.Eq(&z) != 1 {
+	z.ModInverse(x, m)
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetHex("DDAB4CDD41300C5F9511FE68")
 	m, _ = ModulusFromHex("DDAB4CDD41300C5F9511FE69")
-	z.ModInverse(&x, m)
-	if x.Eq(&z) != 1 {
+	z.ModInverse(x, m)
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 	x.SetHex("A200F1C011C86FFF9A")
 	m, _ = ModulusFromHex("A200F1C011C86FFF9B")
-	z.ModInverse(&x, m)
-	if x.Eq(&z) != 1 {
+	z.ModInverse(x, m)
+	if x.Eq(z) != 1 {
+		t.Errorf("%+v != %+v", x, z)
+	}
+	x.SetHex("E7B6E7C1CCB2CEDE797F87937E")
+	m, _ = ModulusFromHex("E7B6E7C1CCB2CEDE797F87937F")
+	z.ModInverse(x, m)
+	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
 }
