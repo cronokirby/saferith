@@ -1508,7 +1508,7 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 
 	halfM := make([]Word, size+1)
 	halfM[0] = 1
-	addVV(halfM, halfM[:size], m)
+	halfM[size] = addVV(halfM, halfM[:size], m)
 	shrVU(halfM, halfM, 1)
 	halfM = halfM[:size]
 
