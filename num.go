@@ -1459,6 +1459,10 @@ func topLimbs(a, b []Word) (Word, Word) {
 	return (a1 << l) | (a0 >> (_W - l)), (b1 << l) | (b0 >> (_W - l))
 }
 
+func nat(limbs []Word) *Nat {
+	return &Nat{limbs: limbs, reduced: nil, announced: _W * len(limbs)}
+}
+
 // invert calculates and returns v s.t. vx = 1 mod m, and a flag indicating success.
 //
 // This function assumes that m is and odd number, but doesn't assume
@@ -1467,7 +1471,7 @@ func topLimbs(a, b []Word) (Word, Word) {
 // The slice returned should be copied into the result, and not used directly.
 //
 // The recipient Nat is used only for scratch space.
-func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
+func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []Word) {
 	const k = _W >> 1
 	const kMask = Word((1 << (k - 1)) - 1)
 	if len(x) != len(m) {
@@ -1486,7 +1490,8 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 	scratch2 := make([]Word, size+1)
 	scratch3 := make([]Word, size)
 
-	iterations := ((2*announced - 1) + k - 2) / (k - 1)
+	minIterations := 2*announced - 1
+	iterations := (minIterations + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
 		aBar := a[0]
 		bBar := b[0]
@@ -1547,19 +1552,30 @@ func (z *Nat) invert(announced int, x []Word, m []Word) (Choice, []Word) {
 		ctCondCopy(vNeg&(1^cmpZero(v)), v, scratch3)
 	}
 
-	halfM := make([]Word, size+1)
-	halfM[0] = 1
-	halfM[size] = addVV(halfM, halfM[:size], m)
-	shrVU(halfM, halfM, 1)
-	halfM = halfM[:size]
-
-	for i := 0; i < iterations*(k-1); i++ {
-		vOdd := Choice(shrVU(v, v, 1) >> (_W - 1))
-		addVV(scratch3, v, halfM)
-		ctCondCopy(vOdd, v, scratch3)
+	totalIterations := iterations * (k - 1)
+	copy(scratch1, v)
+	const mask32 = (1 << k) - 1
+	for i := 0; i < totalIterations>>_WShift; i++ {
+		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&mask32)
+		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*(scratch1[0]>>k))&mask32)
+		copy(scratch1, scratch1[1:])
+	}
+	remaining := totalIterations & _WMask
+	if remaining > 0 {
+		last0 := scratch1[0]
+		if remaining > k {
+			last0 >>= k
+			scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&mask32)
+		}
+		lastK := remaining % k
+		if lastK > 0 {
+			lastMask := Word((1 << lastK) - 1)
+			scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*last0)&lastMask)
+		}
+		shrVU(scratch1, scratch1, uint(remaining))
 	}
 
-	return cmpZero(b[1:]) & ctEq(1, b[0]), v
+	return cmpZero(b[1:]) & ctEq(1, b[0]), scratch1[:size]
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
@@ -1585,7 +1601,7 @@ func (x *Nat) Coprime(y *Nat) Choice {
 	// We make b odd so that our calculations aren't messed up, but this doesn't affect
 	// our result
 	b[0] |= 1
-	invertible, _ := scratch.invert(maxBits, a, b)
+	invertible, _ := scratch.invert(maxBits, a, b, -invertModW(b[0]))
 
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
 	// otherwise, both are even, so we want to return false anyways.
@@ -1606,11 +1622,11 @@ func (x *Nat) IsUnit(m *Modulus) Choice {
 // x and m.
 //
 // We also assume that x is already reduced modulo m
-func (z *Nat) modInverse(x *Nat, m *Nat) *Nat {
+func (z *Nat) modInverse(x *Nat, m *Nat, m0inv Word) *Nat {
 	// Make sure that z doesn't alias either of m or x
 	xLimbs := x.unaliasedLimbs(z)
 	mLimbs := m.unaliasedLimbs(z)
-	_, v := z.invert(m.announced, xLimbs, mLimbs)
+	_, v := z.invert(m.announced, xLimbs, mLimbs, m0inv)
 	z.limbs = z.resizedLimbs(m.announced)
 	copy(z.limbs, v)
 	maskEnd(z.limbs, m.announced)
@@ -1627,7 +1643,7 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 	if m.even {
 		z.modInverseEven(x, m)
 	} else {
-		z.modInverse(z, &m.nat)
+		z.modInverse(z, &m.nat, m.m0inv)
 	}
 	z.reduced = m
 	z.announced = m.nat.announced
@@ -1683,6 +1699,9 @@ func divDouble(x []Word, d []Word, out []Word) []Word {
 //
 // This function assumes that x has an inverse modulo m, naturally
 func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
+	if x.announced <= 0 {
+		return z.Resize(0)
+	}
 	// Idea:
 	//
 	// You want to find Z such that ZX = 1 mod M. The problem is
@@ -1697,7 +1716,7 @@ func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	// We want to invert m modulo x, so we first calculate the reduced version, before inverting
 	var newZ Nat
 	newZ.limbs = divDouble(m.nat.limbs, x.limbs, nil)
-	newZ.modInverse(&newZ, x)
+	newZ.modInverse(&newZ, x, -invertModW(x.limbs[0]))
 	inverseZero := cmpZero(newZ.limbs)
 	newZ.Mul(&newZ, &m.nat, 2*size*_W)
 	newZ.limbs = newZ.resizedLimbs(_W * 2 * size)
