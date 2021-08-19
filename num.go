@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+// General utilities
+
+// add calculates a + b + carry, returning the sum, and carry
+//
+// This is a convenient wrapper around bits.Add, and should be optimized
+// by the compiler to produce a single ADC instruction.
+func add(a, b, carry Word) (sum Word, newCarry Word) {
+	s, c := bits.Add(uint(a), uint(b), uint(carry))
+	return Word(s), Word(c)
+}
+
 // Constant Time Utilities
 
 // Choice represents a constant-time boolean.
@@ -705,6 +716,19 @@ func (m *Modulus) Cmp(n *Modulus) (Choice, Choice, Choice) {
 	return m.nat.Cmp(&n.nat)
 }
 
+// shiftAddInCommon exists to unify behavior between shiftAddIn and shiftAddInGeneric
+//
+// z, scratch, and m should have the same length.
+//
+// The two functions differ only in how the calculate a1:a0, and b0.
+//
+// hi should be what was previously the top limb of z.
+//
+// a1:a0 and b0 should be the most significant two limbs of z, and single limb of m,
+// after shifting to discard leading zeros.
+//
+// The way these are calculated differs between the two versions of shiftAddIn,
+// which is why this function exists.
 func shiftAddInCommon(z, scratch, m []Word, hi, a1, a0, b0 Word) (q Word) {
 	// We want to use a1:a0 / b0 - 1 as our estimate. If rawQ is 0, we should
 	// use 0 as our estimate. Another edge case when an overflow happens in the quotient.
@@ -771,6 +795,13 @@ func shiftAddIn(z, scratch []Word, x Word, m *Modulus) (q Word) {
 	return shiftAddInCommon(z, scratch, m.nat.limbs, hi, a1, a0, b0)
 }
 
+// shiftAddInGeneric is like shiftAddIn, but works with arbitrary m.
+//
+// See shiftAddIn for what this function is trying to accomplish, and what the
+// inputs represent.
+//
+// The big difference this entails is that z and m may have padding limbs, so
+// we have to do a bit more work to recover their significant bits in constant-time.
 func shiftAddInGeneric(z, scratch []Word, x Word, m []Word) Word {
 	size := len(m)
 	if size == 0 {
@@ -783,6 +814,12 @@ func shiftAddInGeneric(z, scratch []Word, x Word, m []Word) Word {
 		return q
 	}
 
+	// We need to get match the two most significant 2 * _W bits of z with the most significant
+	// _W bits of m. We also need to eliminate any leading zeros, possibly fetching a
+	// these bits over multiple limbs. Because of this, we need to scan over both
+	// arrays, with a window of 3 limbs for z, and 2 limbs for m, until we hit the
+	// first non-zero limb for either of them. Because z < m, it suffices to check
+	// for a non-zero limb from m.
 	var a2, a1, a0, b1, b0 Word
 	done := Choice(0)
 	for i := size - 1; i > 1; i-- {
@@ -793,18 +830,22 @@ func shiftAddInGeneric(z, scratch []Word, x Word, m []Word) Word {
 		b0 = ctIfElse(done, b0, m[i-1])
 		done = 1 ^ ctEq(b1, 0)
 	}
-
+	// We also need to do one more iteration to potentially include x inside of our
+	// significant bits from z.
 	a2 = ctIfElse(done, a2, z[1])
 	a1 = ctIfElse(done, a1, z[0])
 	a0 = ctIfElse(done, a0, x)
 	b1 = ctIfElse(done, b1, m[1])
 	b0 = ctIfElse(done, b0, m[0])
+	// Now, we need to shift away the leading zeros to get the most significant bits.
 	// Converting to Word avoids a panic check
 	l := Word(leadingZeros(b1))
 	a2 = (a2 << l) | (a1 >> (_W - l))
 	a1 = (a1 << l) | (a0 >> (_W - l))
 	b1 = (b1 << l) | (b0 >> (_W - l))
 
+	// Another adjustment we need to make before calling the next function is to actually
+	// insert x inside of z, shifting out hi.
 	hi := z[len(z)-1]
 	for i := size - 1; i > 0; i-- {
 		z[i] = z[i-1]
@@ -1406,11 +1447,13 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
-func add(a, b, carry Word) (Word, Word) {
-	s, c := bits.Add(uint(a), uint(b), uint(carry))
-	return Word(s), Word(c)
-}
-
+// mixSigned calculates a <- alpha * a + beta * b, returning whether the result is negative.
+//
+// alpha and beta are signed integers, but whose absolute value is < 2^(_W / 2).
+// They're represented in two's complement.
+//
+// a and b both have an extra limb. We use the extra limb of a to store the full
+// result.
 func mixSigned(a, b []Word, alpha, beta Word) Choice {
 	// Get the sign and absolute value for alpha
 	alphaNeg := alpha >> (_W - 1)
@@ -1419,14 +1462,20 @@ func mixSigned(a, b []Word, alpha, beta Word) Choice {
 	betaNeg := beta >> (_W - 1)
 	beta = (beta ^ -betaNeg) + betaNeg
 
-	// Multiply by absolute values
+	// Our strategy for representing the result is to use a two's complement
+	// representation alongside an extra limb.
+
+	// Multiply a by alpha
 	var cc Word
 	for i := 0; i < len(a)-1; i++ {
 		cc, a[i] = mulAddWWW_g(alpha, a[i], cc)
 	}
 	a[len(a)-1] = cc
+	// Correct for sign
 	negateTwos(Choice(alphaNeg), a)
 
+	// We want to do the same for b, and then add it to a, but without
+	// creating a temporary array
 	var mulCarry, negCarry, addCarry, si Word
 	mulCarry, si = mulAddWWW_g(beta, b[0], 0)
 	si, negCarry = add(si^-betaNeg, betaNeg, 0)
@@ -1438,12 +1487,19 @@ func mixSigned(a, b []Word, alpha, beta Word) Choice {
 	}
 	si, _ = add(mulCarry^-betaNeg, 0, negCarry)
 	a[len(a)-1], _ = add(a[len(a)-1], si, addCarry)
+
 	outNeg := Choice(a[len(a)-1] >> (_W - 1))
 	negateTwos(outNeg, a)
 
 	return outNeg
 }
 
+// topLimbs finds the most significant _W bits of a and b
+//
+// This function assumes that a and b have the same length.
+//
+// By this, we mean aligning a and b, and then reading down _W bits starting
+// from the first bit that a or b have set.
 func topLimbs(a, b []Word) (Word, Word) {
 	// explicitly checking this avoids indexing checks later too
 	if len(a) != len(b) {
@@ -1467,26 +1523,31 @@ func topLimbs(a, b []Word) (Word, Word) {
 	return (a1 << l) | (a0 >> (_W - l)), (b1 << l) | (b0 >> (_W - l))
 }
 
-func nat(limbs []Word) *Nat {
-	return &Nat{limbs: limbs, reduced: nil, announced: _W * len(limbs)}
-}
-
 // invert calculates and returns v s.t. vx = 1 mod m, and a flag indicating success.
 //
 // This function assumes that m is and odd number, but doesn't assume
 // that m is truncated to its full size.
 //
-// The slice returned should be copied into the result, and not used directly.
+// announced should be the number of significant bits in m.
+//
+// x should already be reduced modulo m.
+//
+// m0inv should be -invertModW(m[0]), which might have been precomputed in some
+// cases.
 func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
-	const k = _W >> 1
-	const kMask = (1 << k) - 1
-	const kMinusOneMask = Word((1 << (k - 1)) - 1)
+	// This function follows Thomas Pornin's optimized GCD method:
+	//   https://eprint.iacr.org/2020/972
 	if len(x) != len(m) {
 		panic("invert: mismatched arguments")
 	}
 
 	size := len(m)
+	// We need 4 normal buffers, and one scratch buffer.
+	// We make each of them have an extra limb, because our updates produce an extra
+	// _W / 2 bits or so, before shifting, or modular reduction, and it's convenient
+	// to do these "large" updates in place.
 	z.limbs = z.resizedLimbs(_W * 5 * (size + 1))
+	// v = 0, u = 1, a = x, b = m
 	v := z.limbs[:size+1]
 	u := z.limbs[size+1 : 2*(size+1)]
 	for i := 0; i < size; i++ {
@@ -1500,21 +1561,48 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
 	copy(b, m)
 	scratch := z.limbs[4*(size+1):]
 
-	minIterations := 2*announced - 1
-	iterations := (minIterations + k - 2) / (k - 1)
+	// k is half of our limb size
+	//
+	// We do k - 1 inner iterations inside our loop.
+	const k = _W >> 1
+	// kMask allows us to keep only this half of a limb
+	const kMask = (1 << k) - 1
+	// iterMask allows us to mask off first (k - 1) bits, which is useful, since
+	// that's how many inner iterations we have.
+	const iterMask = Word((1 << (k - 1)) - 1)
+	// The minimum number of iterations is 2 * announced - 1. So, we calculate
+	// the ceiling of this quantity divided by (k - 1), since that's the number
+	// of iterations we do inside the inner loop
+	iterations := ((2*announced - 1) + k - 2) / (k - 1)
 	for i := 0; i < iterations; i++ {
+		// The core idea is to use an approximation of a and b to calculate update
+		// factors. We want to use the low k - 1 bits, combined with the high k + 1 bits.
+		// This is because the low k - 1 bits suffice to give us odd / even information
+		// for our k - 1 iterations, and the remaining high bits allow us to check
+		// a < b as well.
 		aBar := a[0]
 		bBar := b[0]
 		if size > 1 {
 			aTop, bTop := topLimbs(a[:size], b[:size])
-			aBar = (kMinusOneMask & aBar) | (^kMinusOneMask & aTop)
-			bBar = (kMinusOneMask & bBar) | (^kMinusOneMask & bTop)
+			aBar = (iterMask & aBar) | (^iterMask & aTop)
+			bBar = (iterMask & bBar) | (^iterMask & bTop)
 		}
+		// We store two factors in a single register, to make the inner loop faster.
+		//
+		//  fg = f + (2^(k-1) - 1) + 2^k(g + (2^(k-1) - 1))
+		//
+		// The reason we add in 2^(k-1) - 1, is so that the result in each half
+		// doesn't go negative. We then subtract this factor away when extracting
+		// the coefficients.
 
-		const fudge = kMinusOneMask * ((1 << k) + 1)
-		fg0 := Word(1) + fudge
-		fg1 := Word(1<<k) + fudge
+		// This factor needs to be added when we subtract one double register from
+		// another, and vice versa.
+		const coefficientAdjust = iterMask * ((1 << k) + 1)
+		fg0 := Word(1) + coefficientAdjust
+		fg1 := Word(1<<k) + coefficientAdjust
 		for j := 0; j < k-1; j++ {
+			// Note: inlining the ctIfElse's produces worse assembly, for some reason;
+			// there's a lot more register spilling.
 			acp := aBar
 			bcp := bBar
 			fg0cp := fg0
@@ -1529,7 +1617,7 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
 
 			aBar -= bBar
 			fg0 -= fg1
-			fg0 += fudge
+			fg0 += coefficientAdjust
 
 			aOdd := Choice(acp & 1)
 			aBar = ctIfElse(aOdd, aBar, acp)
@@ -1539,27 +1627,34 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
 
 			aBar >>= 1
 			fg1 += fg1
-			fg1 -= fudge
+			fg1 -= coefficientAdjust
 		}
-		f0 := (fg0 & kMask) - kMinusOneMask
-		g0 := (fg0 >> k) - kMinusOneMask
-		f1 := (fg1 & kMask) - kMinusOneMask
-		g1 := (fg1 >> k) - kMinusOneMask
+		// Extract out the actual coefficients, as per the previous discussion.
+		f0 := (fg0 & kMask) - iterMask
+		g0 := (fg0 >> k) - iterMask
+		f1 := (fg1 & kMask) - iterMask
+		g1 := (fg1 >> k) - iterMask
 
+		// a, b <- (f0 * a + g0 * b), (f1 * a + g1 * b)
 		copy(scratch, a)
 		aNeg := Word(mixSigned(a, b, f0, g0))
+		bNeg := Word(mixSigned(b, scratch, g1, f1))
+		// This will always clear the low k - 1 bits, so we shift those away
 		shrVU(a, a, k-1)
+		shrVU(b, b, k-1)
+		// The result may have been negative, in which case we need to negate
+		// the coefficients for the updates to u and v.
 		f0 = (f0 ^ -aNeg) + aNeg
 		g0 = (g0 ^ -aNeg) + aNeg
-		bNeg := Word(mixSigned(b, scratch, g1, f1))
-		shrVU(b, b, k-1)
 		f1 = (f1 ^ -bNeg) + bNeg
 		g1 = (g1 ^ -bNeg) + bNeg
 
+		// u, v <- (f0 * u + g0 * v), (f1 * u + g1 * v)
 		copy(scratch, u)
 		uNeg := mixSigned(u, v, f0, g0)
 		vNeg := mixSigned(v, scratch, g1, f1)
 
+		// Now, reduce u and v mod m, making sure to conditionally negate the result.
 		u0 := u[0]
 		copy(u, u[1:])
 		shiftAddInGeneric(u[:size], scratch[:size], u0, m)
@@ -1573,11 +1668,18 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
 		ctCondCopy(vNeg&(1^cmpZero(v)), v[:size], scratch[:size])
 	}
 
+	// v now contains our inverse, multiplied by 2^(iterations). We need to correct
+	// this by dividing by 2. We can use the same trick as in montgomery multiplication,
+	// adding the correct multiple of m to clear the low bits, and then shifting
 	totalIterations := iterations * (k - 1)
+	// First, we try and do _W / 2 bits at a time. This is a convenient amount,
+	// because then the coefficient only occupies a single limb.
 	for i := 0; i < totalIterations/k; i++ {
-		v[size] = addMulVVW(v[:size], m, (m0inv*v[0])&((1<<k)-1))
+		v[size] = addMulVVW(v[:size], m, (m0inv*v[0])&kMask)
 		shrVU(v, v, k)
 	}
+	// If there are any iterations remaining, we can take care of them by clearing
+	// a smaller number of bits.
 	remaining := totalIterations % k
 	if remaining > 0 {
 		lastMask := Word((1 << remaining) - 1)
@@ -1586,7 +1688,7 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
 	}
 
 	z.Resize(announced)
-
+	// Inversion succeeded if b, which contains gcd(x, m), is 1.
 	return cmpZero(b[1:]) & ctEq(1, b[0])
 }
 
