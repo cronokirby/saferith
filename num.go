@@ -1406,7 +1406,12 @@ func (z *Nat) EqZero() Choice {
 	return cmpZero(z.limbs)
 }
 
-func mixSigned(out, scratch, a, b []Word, alpha, beta Word) Choice {
+func add(a, b, carry Word) (Word, Word) {
+	s, c := bits.Add(uint(a), uint(b), uint(carry))
+	return Word(s), Word(c)
+}
+
+func mixSigned(a, b []Word, alpha, beta Word) Choice {
 	// Get the sign and absolute value for alpha
 	alphaNeg := alpha >> (_W - 1)
 	alpha = (alpha ^ -alphaNeg) + alphaNeg
@@ -1416,22 +1421,25 @@ func mixSigned(out, scratch, a, b []Word, alpha, beta Word) Choice {
 
 	// Multiply by absolute values
 	var cc Word
-	for i := 0; i < len(a); i++ {
-		cc, out[i] = mulAddWWW_g(alpha, a[i], cc)
+	for i := 0; i < len(a)-1; i++ {
+		cc, a[i] = mulAddWWW_g(alpha, a[i], cc)
 	}
-	out[len(out)-1] = cc
+	a[len(a)-1] = cc
+	negateTwos(Choice(alphaNeg), a)
 
-	cc = 0
-	for i := 0; i < len(b); i++ {
-		cc, scratch[i] = mulAddWWW_g(beta, b[i], cc)
+	var mulCarry, negCarry, addCarry, si Word
+	mulCarry, si = mulAddWWW_g(beta, b[0], 0)
+	si, negCarry = add(si^-betaNeg, betaNeg, 0)
+	a[0], addCarry = add(a[0], si, 0)
+	for i := 1; i < len(b)-1; i++ {
+		mulCarry, si = mulAddWWW_g(beta, b[i], mulCarry)
+		si, negCarry = add(si^-betaNeg, 0, negCarry)
+		a[i], addCarry = add(a[i], si, addCarry)
 	}
-	scratch[len(scratch)-1] = cc
-	negateTwos(Choice(alphaNeg), out)
-	negateTwos(Choice(betaNeg), scratch)
-	// Add results
-	addVV(out, out, scratch)
-	outNeg := Choice(out[len(out)-1] >> (_W - 1))
-	negateTwos(outNeg, out)
+	si, _ = add(mulCarry^-betaNeg, 0, negCarry)
+	a[len(a)-1], _ = add(a[len(a)-1], si, addCarry)
+	outNeg := Choice(a[len(a)-1] >> (_W - 1))
+	negateTwos(outNeg, a)
 
 	return outNeg
 }
@@ -1469,9 +1477,7 @@ func nat(limbs []Word) *Nat {
 // that m is truncated to its full size.
 //
 // The slice returned should be copied into the result, and not used directly.
-//
-// The recipient Nat is used only for scratch space.
-func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []Word) {
+func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) Choice {
 	const k = _W >> 1
 	const kMask = (1 << k) - 1
 	const kMinusOneMask = Word((1 << (k - 1)) - 1)
@@ -1480,16 +1486,19 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 	}
 
 	size := len(m)
-	a := make([]Word, size)
-	copy(a, x)
-	b := make([]Word, size)
-	copy(b, m)
-	u := make([]Word, size)
+	z.limbs = z.resizedLimbs(_W * 5 * (size + 1))
+	v := z.limbs[:size+1]
+	u := z.limbs[size+1 : 2*(size+1)]
+	for i := 0; i < size; i++ {
+		u[i] = 0
+		v[i] = 0
+	}
 	u[0] = 1
-	v := make([]Word, size)
-	scratch1 := make([]Word, size+1)
-	scratch2 := make([]Word, size+1)
-	scratch3 := make([]Word, size)
+	a := z.limbs[3*(size+1) : 4*(size+1)]
+	copy(a, x)
+	b := z.limbs[2*(size+1) : 3*(size+1)]
+	copy(b, m)
+	scratch := z.limbs[4*(size+1):]
 
 	minIterations := 2*announced - 1
 	iterations := (minIterations + k - 2) / (k - 1)
@@ -1497,7 +1506,7 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 		aBar := a[0]
 		bBar := b[0]
 		if size > 1 {
-			aTop, bTop := topLimbs(a, b)
+			aTop, bTop := topLimbs(a[:size], b[:size])
 			aBar = (kMinusOneMask & aBar) | (^kMinusOneMask & aTop)
 			bBar = (kMinusOneMask & bBar) | (^kMinusOneMask & bTop)
 		}
@@ -1537,48 +1546,48 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 		f1 := (fg1 & kMask) - kMinusOneMask
 		g1 := (fg1 >> k) - kMinusOneMask
 
-		aNeg := Word(mixSigned(scratch1, scratch2, a, b, f0, g0))
-		shrVU(scratch1, scratch1, k-1)
+		copy(scratch, a)
+		aNeg := Word(mixSigned(a, b, f0, g0))
+		shrVU(a, a, k-1)
 		f0 = (f0 ^ -aNeg) + aNeg
 		g0 = (g0 ^ -aNeg) + aNeg
-		copy(scratch3, scratch1)
-		bNeg := Word(mixSigned(scratch1, scratch2, a, b, f1, g1))
-		shrVU(scratch1, scratch1, k-1)
+		bNeg := Word(mixSigned(b, scratch, g1, f1))
+		shrVU(b, b, k-1)
 		f1 = (f1 ^ -bNeg) + bNeg
 		g1 = (g1 ^ -bNeg) + bNeg
-		copy(b, scratch1)
-		copy(a, scratch3)
 
-		uNeg := mixSigned(scratch1, scratch2, u, v, f0, g0)
-		u0 := scratch1[0]
-		copy(scratch3, scratch1[1:])
-		shiftAddInGeneric(scratch3, scratch2[:size], u0, m)
-		subVV(scratch2[:size], m, scratch3)
-		ctCondCopy(uNeg&(1^cmpZero(scratch3)), scratch3, scratch2[:size])
+		copy(scratch, u)
+		uNeg := mixSigned(u, v, f0, g0)
+		vNeg := mixSigned(v, scratch, g1, f1)
 
-		vNeg := mixSigned(scratch1, scratch2, u, v, f1, g1)
-		copy(u, scratch3)
-		v0 := scratch1[0]
-		copy(v, scratch1[1:])
-		shiftAddInGeneric(v, scratch3, v0, m)
-		subVV(scratch3, m, v)
-		ctCondCopy(vNeg&(1^cmpZero(v)), v, scratch3)
+		u0 := u[0]
+		copy(u, u[1:])
+		shiftAddInGeneric(u[:size], scratch[:size], u0, m)
+		subVV(scratch[:size], m, u[:size])
+		ctCondCopy(uNeg&(1^cmpZero(u)), u[:size], scratch[:size])
+
+		v0 := v[0]
+		copy(v, v[1:])
+		shiftAddInGeneric(v[:size], scratch[:size], v0, m)
+		subVV(scratch[:size], m, v[:size])
+		ctCondCopy(vNeg&(1^cmpZero(v)), v[:size], scratch[:size])
 	}
 
 	totalIterations := iterations * (k - 1)
-	copy(scratch1, v)
 	for i := 0; i < totalIterations/k; i++ {
-		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&((1<<k)-1))
-		shrVU(scratch1, scratch1, k)
+		v[size] = addMulVVW(v[:size], m, (m0inv*v[0])&((1<<k)-1))
+		shrVU(v, v, k)
 	}
 	remaining := totalIterations % k
 	if remaining > 0 {
 		lastMask := Word((1 << remaining) - 1)
-		scratch1[size] = addMulVVW(scratch1[:size], m, (m0inv*scratch1[0])&lastMask)
-		shrVU(scratch1, scratch1, uint(remaining))
+		v[size] = addMulVVW(v[:size], m, (m0inv*v[0])&lastMask)
+		shrVU(v, v, uint(remaining))
 	}
 
-	return cmpZero(b[1:]) & ctEq(1, b[0]), scratch1[:size]
+	z.Resize(announced)
+
+	return cmpZero(b[1:]) & ctEq(1, b[0])
 }
 
 // Coprime returns 1 if gcd(x, y) == 1, and 0 otherwise
@@ -1604,7 +1613,7 @@ func (x *Nat) Coprime(y *Nat) Choice {
 	// We make b odd so that our calculations aren't messed up, but this doesn't affect
 	// our result
 	b[0] |= 1
-	invertible, _ := scratch.invert(maxBits, a, b, -invertModW(b[0]))
+	invertible := scratch.invert(maxBits, a, b, -invertModW(b[0]))
 
 	// If at least one of a or b is odd, then our GCD calculation will have been correct,
 	// otherwise, both are even, so we want to return false anyways.
@@ -1629,10 +1638,7 @@ func (z *Nat) modInverse(x *Nat, m *Nat, m0inv Word) *Nat {
 	// Make sure that z doesn't alias either of m or x
 	xLimbs := x.unaliasedLimbs(z)
 	mLimbs := m.unaliasedLimbs(z)
-	_, v := z.invert(m.announced, xLimbs, mLimbs, m0inv)
-	z.limbs = z.resizedLimbs(m.announced)
-	copy(z.limbs, v)
-	maskEnd(z.limbs, m.announced)
+	z.invert(m.announced, xLimbs, mLimbs, m0inv)
 	return z
 }
 
@@ -1649,7 +1655,6 @@ func (z *Nat) ModInverse(x *Nat, m *Modulus) *Nat {
 		z.modInverse(z, &m.nat, m.m0inv)
 	}
 	z.reduced = m
-	z.announced = m.nat.announced
 	return z
 }
 
@@ -1738,7 +1743,7 @@ func (z *Nat) modInverseEven(x *Nat, m *Modulus) *Nat {
 	ctCondCopy(1^inverseZero, newZ.limbs[:size], newZ.limbs[size:])
 
 	z.limbs = newZ.limbs
-	z.limbs = z.resizedLimbs(m.nat.announced)
+	z.Resize(m.nat.announced)
 	return z
 }
 
