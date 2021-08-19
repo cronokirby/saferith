@@ -1473,7 +1473,8 @@ func nat(limbs []Word) *Nat {
 // The recipient Nat is used only for scratch space.
 func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []Word) {
 	const k = _W >> 1
-	const kMask = Word((1 << (k - 1)) - 1)
+	const kMask = (1 << k) - 1
+	const kMinusOneMask = Word((1 << (k - 1)) - 1)
 	if len(x) != len(m) {
 		panic("invert: mismatched arguments")
 	}
@@ -1497,47 +1498,45 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 		bBar := b[0]
 		if size > 1 {
 			aTop, bTop := topLimbs(a, b)
-			aBar = (kMask & aBar) | (^kMask & aTop)
-			bBar = (kMask & bBar) | (^kMask & bTop)
+			aBar = (kMinusOneMask & aBar) | (^kMinusOneMask & aTop)
+			bBar = (kMinusOneMask & bBar) | (^kMinusOneMask & bTop)
 		}
 
-		f0 := Word(1)
-		g0 := Word(0)
-		f1 := Word(0)
-		g1 := Word(1)
+		const fudge = kMinusOneMask * ((1 << k) + 1)
+		fg0 := Word(1) + fudge
+		fg1 := Word(1<<k) + fudge
 		for j := 0; j < k-1; j++ {
 			acp := aBar
 			bcp := bBar
-			f0cp := f0
-			g0cp := g0
-			f1cp := f1
-			g1cp := g1
+			fg0cp := fg0
+			fg1cp := fg1
 
 			_, carry := bits.Sub(uint(aBar), uint(bBar), 0)
 			aSmaller := Choice(carry)
 			aBar = ctIfElse(aSmaller, bcp, aBar)
 			bBar = ctIfElse(aSmaller, acp, bBar)
-			f0 = ctIfElse(aSmaller, f1cp, f0)
-			f1 = ctIfElse(aSmaller, f0cp, f1)
-			g0 = ctIfElse(aSmaller, g1cp, g0)
-			g1 = ctIfElse(aSmaller, g0cp, g1)
+			fg0 = ctIfElse(aSmaller, fg1cp, fg0)
+			fg1 = ctIfElse(aSmaller, fg0cp, fg1)
 
 			aBar -= bBar
-			f0 -= f1
-			g0 -= g1
+			fg0 -= fg1
+			fg0 += fudge
 
 			aOdd := Choice(acp & 1)
 			aBar = ctIfElse(aOdd, aBar, acp)
 			bBar = ctIfElse(aOdd, bBar, bcp)
-			f0 = ctIfElse(aOdd, f0, f0cp)
-			f1 = ctIfElse(aOdd, f1, f1cp)
-			g0 = ctIfElse(aOdd, g0, g0cp)
-			g1 = ctIfElse(aOdd, g1, g1cp)
+			fg0 = ctIfElse(aOdd, fg0, fg0cp)
+			fg1 = ctIfElse(aOdd, fg1, fg1cp)
 
 			aBar >>= 1
-			f1 <<= 1
-			g1 <<= 1
+			fg1 += fg1
+			fg1 -= fudge
 		}
+		f0 := (fg0 & kMask) - kMinusOneMask
+		g0 := (fg0 >> k) - kMinusOneMask
+		f1 := (fg1 & kMask) - kMinusOneMask
+		g1 := (fg1 >> k) - kMinusOneMask
+
 		aNeg := Word(mixSigned(scratch1, scratch2, a, b, f0, g0))
 		shrVU(scratch1, scratch1, k-1)
 		f0 = (f0 ^ -aNeg) + aNeg
