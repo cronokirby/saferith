@@ -1506,33 +1506,47 @@ func (z *Nat) invert(announced int, x []Word, m []Word, m0inv Word) (Choice, []W
 		f1 := Word(0)
 		g1 := Word(1)
 		for j := 0; j < k-1; j++ {
-			if aBar&1 == 0 {
-				aBar >>= 1
-			} else {
-				if aBar < bBar {
-					aBar, bBar = bBar, aBar
-					f0, g0, f1, g1 = f1, g1, f0, g0
-				}
-				aBar = (aBar - bBar) >> 1
-				f0 -= f1
-				g0 -= g1
-			}
+			acp := aBar
+			bcp := bBar
+			f0cp := f0
+			g0cp := g0
+			f1cp := f1
+			g1cp := g1
+
+			_, carry := bits.Sub(uint(aBar), uint(bBar), 0)
+			aSmaller := Choice(carry)
+			aBar = ctIfElse(aSmaller, bcp, aBar)
+			bBar = ctIfElse(aSmaller, acp, bBar)
+			f0 = ctIfElse(aSmaller, f1cp, f0)
+			f1 = ctIfElse(aSmaller, f0cp, f1)
+			g0 = ctIfElse(aSmaller, g1cp, g0)
+			g1 = ctIfElse(aSmaller, g0cp, g1)
+
+			aBar -= bBar
+			f0 -= f1
+			g0 -= g1
+
+			aOdd := Choice(acp & 1)
+			aBar = ctIfElse(aOdd, aBar, acp)
+			bBar = ctIfElse(aOdd, bBar, bcp)
+			f0 = ctIfElse(aOdd, f0, f0cp)
+			f1 = ctIfElse(aOdd, f1, f1cp)
+			g0 = ctIfElse(aOdd, g0, g0cp)
+			g1 = ctIfElse(aOdd, g1, g1cp)
+
+			aBar >>= 1
 			f1 <<= 1
 			g1 <<= 1
 		}
-		aNeg := mixSigned(scratch1, scratch2, a, b, f0, g0)
+		aNeg := Word(mixSigned(scratch1, scratch2, a, b, f0, g0))
 		shrVU(scratch1, scratch1, k-1)
-		if aNeg == 1 {
-			f0 = -f0
-			g0 = -g0
-		}
+		f0 = (f0 ^ -aNeg) + aNeg
+		g0 = (g0 ^ -aNeg) + aNeg
 		copy(scratch3, scratch1)
-		bNeg := mixSigned(scratch1, scratch2, a, b, f1, g1)
+		bNeg := Word(mixSigned(scratch1, scratch2, a, b, f1, g1))
 		shrVU(scratch1, scratch1, k-1)
-		if bNeg == 1 {
-			f1 = -f1
-			g1 = -g1
-		}
+		f1 = (f1 ^ -bNeg) + bNeg
+		g1 = (g1 ^ -bNeg) + bNeg
 		copy(b, scratch1)
 		copy(a, scratch3)
 
