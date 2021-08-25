@@ -4,7 +4,7 @@
 
 // +build math_big_pure_go
 
-package safenum
+package saferith
 
 func addVV(z, x, y []Word) (c Word) {
 	return addVV_g(z, x, y)

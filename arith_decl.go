@@ -4,7 +4,7 @@
 
 // +build !math_big_pure_go
 
-package safenum
+package saferith
 
 // implemented in arith_$GOARCH.s
 func addVV(z, x, y []Word) (c Word)

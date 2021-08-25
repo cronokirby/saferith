@@ -1,3 +1,3 @@
-module github.com/cronokirby/safenum
+module github.com/cronokirby/saferith
 
 go 1.15

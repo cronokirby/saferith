@@ -1,4 +1,4 @@
-package safenum
+package saferith
 
 import (
 	"math/big"

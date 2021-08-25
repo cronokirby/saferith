@@ -4,7 +4,7 @@
 
 // +build !math_big_pure_go
 
-package safenum
+package saferith
 
 // This should be feature detected, but we can't use the internal/cpu package
 var support_adx = false

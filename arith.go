@@ -8,7 +8,7 @@
 // This file also contains elementary operations that can be implemented
 // sufficiently efficiently in Go.
 
-package safenum
+package saferith
 
 import (
 	"math/bits"

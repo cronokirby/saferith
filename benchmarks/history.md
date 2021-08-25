@@ -3,10 +3,10 @@
 Improve inversion speed
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkLimbMask-4                     71810857                16.51 ns/op
 BenchmarkAddBig-4                       10325738               102.5 ns/op
@@ -48,12 +48,12 @@ BenchmarkModSqrt1Mod4Nat-4                  7311            157145 ns/op
 BenchmarkDivNat-4                          60760             19069 ns/op
 BenchmarkLargeDivNat-4                     70380             17242 ns/op
 PASS
-ok      github.com/cronokirby/safenum   59.556s
+ok      github.com/cronokirby/saferith   59.556s
 
-[safenum] → go test -bench=. -tags math_big_pure_go                                                                                                           
+[saferith] → go test -bench=. -tags math_big_pure_go                                                                                                           
 ;goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkLimbMask-4                     71783198                16.69 ns/op
 BenchmarkAddBig-4                        8091496               147.9 ns/op
@@ -95,7 +95,7 @@ BenchmarkModSqrt1Mod4Nat-4                  7810            155648 ns/op
 BenchmarkDivNat-4                          60327             19770 ns/op
 BenchmarkLargeDivNat-4                     66328             18055 ns/op
 PASS
-ok      github.com/cronokirby/safenum   57.483s
+ok      github.com/cronokirby/saferith   57.483s
 ```
 
 # 5e3e87ee146345850aed0449e79cb1df471f5e69 (2021-05-23)
@@ -103,10 +103,10 @@ ok      github.com/cronokirby/safenum   57.483s
 Add benchmarks for sqrt.
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                       10980842                97.37 ns/op
 BenchmarkModAddBig-4                    17397620                80.55 ns/op
@@ -141,12 +141,12 @@ BenchmarkMontgomeryMul-4                  217508              5228 ns/op
 BenchmarkModSqrt3Mod4Nat-4                 26886             45715 ns/op
 BenchmarkModSqrt1Mod4Nat-4                  7867            159168 ns/op
 PASS
-ok      github.com/cronokirby/safenum   48.955s
+ok      github.com/cronokirby/saferith   48.955s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        9965032               123.2 ns/op
 BenchmarkModAddBig-4                    17541772                62.54 ns/op
@@ -181,7 +181,7 @@ BenchmarkMontgomeryMul-4                  221646              5304 ns/op
 BenchmarkModSqrt3Mod4Nat-4                 26612             44991 ns/op
 BenchmarkModSqrt1Mod4Nat-4                  7627            151005 ns/op
 PASS
-ok      github.com/cronokirby/safenum   48.457s
+ok      github.com/cronokirby/saferith   48.457s
 ```
 
 # 686f4cf65fc400b5023f57f038f2482553d5439c (2021-05-23)
@@ -189,10 +189,10 @@ ok      github.com/cronokirby/safenum   48.457s
 Use double sized modulus
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                       10980612                98.41 ns/op
 BenchmarkModAddBig-4                    15502824                72.49 ns/op
@@ -224,12 +224,12 @@ BenchmarkLargeExpNat-4                        82          13861699 ns/op
 BenchmarkSetBytesNat-4                   1525309               793.7 ns/op
 BenchmarkMontgomeryMul-4                  205795              5364 ns/op
 PASS
-ok      github.com/cronokirby/safenum   47.339s
+ok      github.com/cronokirby/saferith   47.339s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        9696001               149.1 ns/op
 BenchmarkModAddBig-4                    17568430                67.73 ns/op
@@ -261,17 +261,17 @@ BenchmarkLargeExpNat-4                        81          14192840 ns/op
 BenchmarkSetBytesNat-4                   1459062               780.0 ns/op
 BenchmarkMontgomeryMul-4                  220545              5350 ns/op
 PASS
-ok      github.com/cronokirby/safenum   45.059s
+ok      github.com/cronokirby/saferith   45.059s
 ```
 # 93b1d2efdf9e0a3933648a0223981b55e45eb97f (2021-05-21)
 
 Use same size for exponent. Reduce modulo m for both big and nat consistently.
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7811989               144.0 ns/op
 BenchmarkModAddBig-4                    17670838                83.17 ns/op
@@ -303,12 +303,12 @@ BenchmarkLargeExpNat-4                        84          13838482 ns/op
 BenchmarkSetBytesNat-4                   1471936               783.0 ns/op
 BenchmarkMontgomeryMul-4                  226705              5169 ns/op
 PASS
-ok      github.com/cronokirby/safenum   46.498s
+ok      github.com/cronokirby/saferith   46.498s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        9266389               119.9 ns/op
 BenchmarkModAddBig-4                    19766632                63.94 ns/op
@@ -334,10 +334,10 @@ BenchmarkMulNat-4                         294279              4188 ns/op
 4 bit windows in exponentiation.
 
 ```
-[safenum] → go test -bench=.                                                                                                                                                        
+[saferith] → go test -bench=.                                                                                                                                                        
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        6364396               176.4 ns/op
 BenchmarkModAddBig-4                     1000000              1122 ns/op
@@ -368,12 +368,12 @@ BenchmarkExpNat-4                         303786              3758 ns/op
 BenchmarkLargeExpNat-4                        81          14387063 ns/op
 BenchmarkSetBytesNat-4                    763826              1498 ns/op
 PASS
-ok      github.com/cronokirby/safenum   40.496s
+ok      github.com/cronokirby/saferith   40.496s
 
-[safenum] → go test -bench=. -tags math_big_pure_go                                                                                                                                 
+[saferith] → go test -bench=. -tags math_big_pure_go                                                                                                                                 
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        4438161               225.5 ns/op
 BenchmarkModAddBig-4                     1002176              1188 ns/op
@@ -404,7 +404,7 @@ BenchmarkExpNat-4                         349776              3514 ns/op
 BenchmarkLargeExpNat-4                        84          14485539 ns/op
 BenchmarkSetBytesNat-4                    772384              1563 ns/op
 PASS
-ok      github.com/cronokirby/safenum   41.785s
+ok      github.com/cronokirby/saferith   41.785s
 ```
 
 # 3a6ccb03c434f719c04ccfcc2c9ce35013424b90 (2021-05-21)
@@ -412,10 +412,10 @@ ok      github.com/cronokirby/safenum   41.785s
 Don't reduce modulo m unnecessarily.
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7046594               184.3 ns/op
 BenchmarkModAddBig-4                      984085              1531 ns/op
@@ -446,12 +446,12 @@ BenchmarkExpNat-4                         387169              3243 ns/op
 BenchmarkLargeExpNat-4                        57          21061245 ns/op
 BenchmarkSetBytesNat-4                    785596              1796 ns/op
 PASS
-ok      github.com/cronokirby/safenum   43.576s
+ok      github.com/cronokirby/saferith   43.576s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5793404               214.7 ns/op
 BenchmarkModAddBig-4                      917923              1171 ns/op
@@ -482,7 +482,7 @@ BenchmarkExpNat-4                         436466              2709 ns/op
 BenchmarkLargeExpNat-4                        54          22100573 ns/op
 BenchmarkSetBytesNat-4                    775238              1528 ns/op
 PASS
-ok      github.com/cronokirby/safenum   37.968s
+ok      github.com/cronokirby/saferith   37.968s
 ```
 
 # 036c5a428268cec0fd63887d75a4fe53c50a350b (2021-05-21)
@@ -490,10 +490,10 @@ ok      github.com/cronokirby/safenum   37.968s
 Benchmarks using 2048 bit modulus:
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7074402               164.0 ns/op
 BenchmarkModAddBig-4                     1025569              1105 ns/op
@@ -524,12 +524,12 @@ BenchmarkExpNat-4                           5539            196737 ns/op
 BenchmarkLargeExpNat-4                        27          42940694 ns/op
 BenchmarkSetBytesNat-4                    738734              1484 ns/op
 PASS
-ok      github.com/cronokirby/safenum   45.238s
+ok      github.com/cronokirby/saferith   45.238s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        4995013               255.2 ns/op
 BenchmarkModAddBig-4                      882956              1198 ns/op
@@ -560,7 +560,7 @@ BenchmarkExpNat-4                           7198            165886 ns/op
 BenchmarkLargeExpNat-4                        26          44880442 ns/op
 BenchmarkSetBytesNat-4                    801037              1479 ns/op
 PASS
-ok      github.com/cronokirby/safenum   42.140s
+ok      github.com/cronokirby/saferith   42.140s
 ```
 
 # 92874261776e63721c16f50b476383a6c2a1818b (2021-04-10)
@@ -568,10 +568,10 @@ ok      github.com/cronokirby/safenum   42.140s
 Various small improvements, namely free limb injection for even modular inversion.
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7626368               174.2 ns/op
 BenchmarkModAddBig-4                      860586              1749 ns/op
@@ -602,12 +602,12 @@ BenchmarkExpNat-4                           5998            186802 ns/op
 BenchmarkLargeExpNat-4                        10         102149566 ns/op
 BenchmarkSetBytesNat-4                    746450              2190 ns/op
 PASS
-ok      github.com/cronokirby/safenum   44.172s
+ok      github.com/cronokirby/saferith   44.172s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5950827               242.9 ns/op
 BenchmarkModAddBig-4                     1000000              1464 ns/op
@@ -638,12 +638,12 @@ BenchmarkExpNat-4                           6625            163308 ns/op
 BenchmarkLargeExpNat-4                        10         106379810 ns/op
 BenchmarkSetBytesNat-4                    594848              1728 ns/op
 PASS
-ok      github.com/cronokirby/safenum   40.055s
+ok      github.com/cronokirby/saferith   40.055s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkLimbMask-4                     71783198                16.69 ns/op
 BenchmarkAddBig-4                        8091496               147.9 ns/op
@@ -685,7 +685,7 @@ BenchmarkModSqrt1Mod4Nat-4                  7810            155648 ns/op
 BenchmarkDivNat-4                          60327             19770 ns/op
 BenchmarkLargeDivNat-4                     66328             18055 ns/op
 PASS
-ok      github.com/cronokirby/safenum   57.483s
+ok      github.com/cronokirby/saferith   57.483s
 ```
 
 # f51bc7910016e703d1389250ee07a90eabcceac3 (2021-04-08)
@@ -693,10 +693,10 @@ ok      github.com/cronokirby/safenum   57.483s
 Implement a more streamlined modular inversion routine.
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5783803               316.4 ns/op
 BenchmarkModAddBig-4                     1000000              1103 ns/op
@@ -727,12 +727,12 @@ BenchmarkExpNat-4                           6046            195910 ns/op
 BenchmarkLargeExpNat-4                        10         107854567 ns/op
 BenchmarkSetBytesNat-4                    667095              1520 ns/op
 PASS
-ok      github.com/cronokirby/safenum   39.583s
+ok      github.com/cronokirby/saferith   39.583s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5109685               229.7 ns/op
 BenchmarkModAddBig-4                     1000000              1172 ns/op
@@ -763,7 +763,7 @@ BenchmarkExpNat-4                           6496            164679 ns/op
 BenchmarkLargeExpNat-4                        10         110866574 ns/op
 BenchmarkSetBytesNat-4                    764706              1486 ns/op
 PASS
-ok      github.com/cronokirby/safenum   40.311s
+ok      github.com/cronokirby/saferith   40.311s
 ```
 
 # 6768b30cbd9284b75aa387717f286b1d81edcf4f (2021-03-31)
@@ -771,10 +771,10 @@ ok      github.com/cronokirby/safenum   40.311s
 Added even modular inversion
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        8544007               187.3 ns/op
 BenchmarkModAddBig-4                     1000000              1164 ns/op
@@ -805,12 +805,12 @@ BenchmarkExpNat-4                           6134            197088 ns/op
 BenchmarkLargeExpNat-4                        10         108836798 ns/op
 BenchmarkSetBytesNat-4                    785342              1525 ns/op
 PASS
-ok      github.com/cronokirby/safenum   42.185s
+ok      github.com/cronokirby/saferith   42.185s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        6626785               206.2 ns/op
 BenchmarkModAddBig-4                     1000000              1168 ns/op
@@ -841,7 +841,7 @@ BenchmarkExpNat-4                           7232            158975 ns/op
 BenchmarkLargeExpNat-4                        10         108437946 ns/op
 BenchmarkSetBytesNat-4                    773128              1483 ns/op
 PASS
-ok      github.com/cronokirby/safenum   41.718s
+ok      github.com/cronokirby/saferith   41.718s
 ```
 
 # b89445f7bada17baf2db88b52f2a39a8a168ceea (2021-03-31)
@@ -849,10 +849,10 @@ ok      github.com/cronokirby/safenum   41.718s
 Various minor optimizations around aliasing when multiplying
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7508224               162.0 ns/op
 BenchmarkModAddBig-4                     1000000              1112 ns/op
@@ -881,12 +881,12 @@ BenchmarkExpNat-4                           6061            192362 ns/op
 BenchmarkLargeExpNat-4                        10         106890226 ns/op
 BenchmarkSetBytesNat-4                    690368              1506 ns/op
 PASS
-ok      github.com/cronokirby/safenum   35.207s
+ok      github.com/cronokirby/saferith   35.207s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5036264               221.7 ns/op
 BenchmarkModAddBig-4                     1000000              1173 ns/op
@@ -915,7 +915,7 @@ BenchmarkExpNat-4                           7132            166127 ns/op
 BenchmarkLargeExpNat-4                        10         111626393 ns/op
 BenchmarkSetBytesNat-4                    773126              1467 ns/op
 PASS
-ok      github.com/cronokirby/safenum   36.167s
+ok      github.com/cronokirby/saferith   36.167s
 ```
 
 # c0e31da784cec1419655a732a96f03c42bc3d97f (2021-03-31)
@@ -923,10 +923,10 @@ ok      github.com/cronokirby/safenum   36.167s
 Implement basic Montgomery multiplication
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7037252               225.2 ns/op
 BenchmarkModAddBig-4                     1000000              1158 ns/op
@@ -955,12 +955,12 @@ BenchmarkExpNat-4                           4910            238846 ns/op
 BenchmarkLargeExpNat-4                        10         111907965 ns/op
 BenchmarkSetBytesNat-4                    754429              1452 ns/op
 PASS
-ok      github.com/cronokirby/safenum   36.098s
+ok      github.com/cronokirby/saferith   36.098s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5705341               217.9 ns/op
 BenchmarkModAddBig-4                      982310              1138 ns/op
@@ -989,7 +989,7 @@ BenchmarkExpNat-4                           5218            217985 ns/op
 BenchmarkLargeExpNat-4                         9         112084020 ns/op
 BenchmarkSetBytesNat-4                    746052              1433 ns/op
 PASS
-ok      github.com/cronokirby/safenum   35.794s
+ok      github.com/cronokirby/saferith   35.794s
 ```
 
 # a24e618bccbc040c7121394c889e8bdd0dca2d01 (2021-03-29)
@@ -997,10 +997,10 @@ ok      github.com/cronokirby/safenum   35.794s
 Implement free limb injection
 
 ```
-[safenum] → go test -bench=.                                                                                                                                                     
+[saferith] → go test -bench=.                                                                                                                                                     
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        6953644               212.4 ns/op
 BenchmarkModAddBig-4                     1100115              1040 ns/op
@@ -1029,11 +1029,11 @@ BenchmarkExpNat-4                            196           5948716 ns/op
 BenchmarkLargeExpNat-4                         3         359713739 ns/op
 BenchmarkSetBytesNat-4                    836378              1506 ns/op
 PASS
-ok      github.com/cronokirby/safenum   44.859s
-[safenum] → go test -bench=. -tags math_big_pure_go                                                                                                                              
+ok      github.com/cronokirby/saferith   44.859s
+[saferith] → go test -bench=. -tags math_big_pure_go                                                                                                                              
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5669407               252.4 ns/op
 BenchmarkModAddBig-4                      946286              1171 ns/op
@@ -1062,7 +1062,7 @@ BenchmarkExpNat-4                            192           6192261 ns/op
 BenchmarkLargeExpNat-4                         3         415365259 ns/op
 BenchmarkSetBytesNat-4                    613538              1669 ns/op
 PASS
-ok      github.com/cronokirby/safenum   39.011s
+ok      github.com/cronokirby/saferith   39.011s
 ```
 
 # 020e34e3436d885500318e1777e7364a1c3c393d (2021-03-27)
@@ -1070,10 +1070,10 @@ ok      github.com/cronokirby/safenum   39.011s
 Limb by limb reduction
 
 ``` 
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7193640               174.0 ns/op
 BenchmarkModAddBig-4                     1129430              1049 ns/op
@@ -1102,12 +1102,12 @@ BenchmarkExpNat-4                            200           5926589 ns/op
 BenchmarkLargeExpNat-4                         2         622324074 ns/op
 BenchmarkSetBytesNat-4                    786177              1445 ns/op
 PASS
-ok      github.com/cronokirby/safenum   40.069s
+ok      github.com/cronokirby/saferith   40.069s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        5884750               222.7 ns/op
 BenchmarkModAddBig-4                      888044              1178 ns/op
@@ -1136,16 +1136,16 @@ BenchmarkExpNat-4                            202           5873289 ns/op
 BenchmarkLargeExpNat-4                         2         717422832 ns/op
 BenchmarkSetBytesNat-4                    686104              1476 ns/op
 PASS
-ok      github.com/cronokirby/safenum   39.768s
+ok      github.com/cronokirby/saferith   39.768s
 ```
 
 # b66ac649d9ca1b1b394a7706cea6495b107dcb9c (2021-03-25)
 
 ```
-[safenum] → go test -bench=.
+[saferith] → go test -bench=.
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        7233490               168.4 ns/op
 BenchmarkModAddBig-4                     1000000              1051 ns/op
@@ -1174,12 +1174,12 @@ BenchmarkExpNat-4                             98          11851448 ns/op
 BenchmarkLargeExpNat-4                         1        5541042938 ns/op
 BenchmarkSetBytesNat-4                    788446              1696 ns/op
 PASS
-ok      github.com/cronokirby/safenum   41.362s
+ok      github.com/cronokirby/saferith   41.362s
 
-[safenum] → go test -bench=. -tags math_big_pure_go
+[saferith] → go test -bench=. -tags math_big_pure_go
 goos: linux
 goarch: amd64
-pkg: github.com/cronokirby/safenum
+pkg: github.com/cronokirby/saferith
 cpu: Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz
 BenchmarkAddBig-4                        6008720               206.7 ns/op
 BenchmarkModAddBig-4                     1000000              1141 ns/op
@@ -1208,5 +1208,5 @@ BenchmarkExpNat-4                            120           9723271 ns/op
 BenchmarkLargeExpNat-4                         1        8705644301 ns/op
 BenchmarkSetBytesNat-4                    794876              1570 ns/op
 PASS
-ok      github.com/cronokirby/safenum   46.227s
+ok      github.com/cronokirby/saferith   46.227s
 ```
