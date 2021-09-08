@@ -1075,6 +1075,12 @@ func TestModSqrtExamples(t *testing.T) {
 	if x.Eq(z) != 1 {
 		t.Errorf("%+v != %+v", x, z)
 	}
+	m = ModulusFromUint64(1)
+	x.SetUint64(13)
+	x.ModSqrt(x, m)
+	if x.EqZero() != 1 {
+		t.Errorf("%+v != 0", x)
+	}
 }
 
 func TestBigExamples(t *testing.T) {

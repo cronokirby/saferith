@@ -1868,6 +1868,13 @@ func (z *Nat) tonelliShanks(x *Nat, p *Modulus) *Nat {
 	one := new(Nat).SetUint64(1)
 	trailingZeros := 1
 	reducedPminusOne := new(Nat).Sub(&p.nat, one, p.BitLen())
+	// In this case, p must have been 1, so sqrt(x) mod p is 0. Explicitly checking
+	// this avoids an infinite loop when trying to remove the least significant zeros.
+	// Checking this value is fine, since ModSqrt is explicitly allowed to branch
+	// on the value of the modulus.
+	if reducedPminusOne.EqZero() == 1 {
+		return z.SetUint64(0)
+	}
 	shrVU(reducedPminusOne.limbs, reducedPminusOne.limbs, 1)
 
 	nonSquare := new(Nat).SetUint64(2)
