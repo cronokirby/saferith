@@ -1925,6 +1925,9 @@ func (z *Nat) ModSqrt(x *Nat, p *Modulus) *Nat {
 	if len(p.nat.limbs) == 0 {
 		panic("Can't take square root mod 0")
 	}
+	if p.nat.limbs[0]&1 == 0 {
+		panic("Can't take square root mod an even number")
+	}
 	if p.nat.limbs[0]&0b11 == 0b11 {
 		return z.modSqrt3Mod4(x, p)
 	}
