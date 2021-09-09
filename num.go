@@ -1916,7 +1916,7 @@ func (z *Nat) tonelliShanks(x *Nat, p *Modulus) *Nat {
 
 // ModSqrt calculates the square root of x modulo p
 //
-// p must be a prime number, and x must actually have a square root
+// p must be an odd prime number, and x must actually have a square root
 // modulo p. The result is undefined if these conditions aren't satisfied
 //
 // This function will leak information about the value of p. This isn't intended
