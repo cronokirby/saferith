@@ -5,7 +5,7 @@ import "math/bits"
 // _WShift can be used to multiply or divide by _W
 //
 // This assumes that _W = 64, 32
-const _WShift = 4 | ((_W >> 6) << 1)
+const _WShift = 5 + (_W >> 6)
 const _WMask = _W - 1
 
 // limbCount returns the number of limbs needed to accomodate bits.
