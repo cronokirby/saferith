@@ -41,7 +41,7 @@ type Choice Word
 // This doesn't leak any information about either of them
 func ctEq(x, y Word) Choice {
 	// If x == y, then x ^ y should be all zero bits.
-	q := uint64(x ^ y)
+	q := uint(x ^ y)
 	// For any q != 0, either the MSB of q, or the MSB of -q is 1.
 	// We can thus or those together, and check the top bit. When q is zero,
 	// that means that x and y are equal, so we negate that top bit.
@@ -513,7 +513,7 @@ func (z *Nat) SetBig(x *big.Int, size int) *Nat {
 func (z *Nat) SetUint64(x uint64) *Nat {
 	z.reduced = nil
 	z.announced = 64
-	z.limbs = z.resizedLimbs(_W)
+	z.limbs = z.resizedLimbs(z.announced)
 	for i := 0; i < len(z.limbs); i++ {
 		z.limbs[i] = Word(x)
 		x >>= _W
