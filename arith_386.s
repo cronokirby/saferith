@@ -1,13 +1,23 @@
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE_go file.
 
+//go:build !math_big_pure_go
 // +build !math_big_pure_go
 
 #include "textflag.h"
 
 // This file provides fast assembly versions for the elementary
 // arithmetic operations on vectors implemented in arith.go.
+
+// func mulWW(x, y Word) (z1, z0 Word)
+TEXT ·mulWW(SB),NOSPLIT,$0
+	MOVL x+0(FP), AX
+	MULL y+4(FP)
+	MOVL DX, z1+8(FP)
+	MOVL AX, z0+12(FP)
+	RET
+
 
 // func addVV(z, x, y []Word) (c Word)
 TEXT ·addVV(SB),NOSPLIT,$0
@@ -176,6 +186,34 @@ X9a:	SHRL CX, AX		// w1>>s
 X9b:	MOVL $0, c+28(FP)
 	RET
 
+
+// func mulAddVWW(z, x []Word, y, r Word) (c Word)
+TEXT ·mulAddVWW(SB),NOSPLIT,$0
+	MOVL z+0(FP), DI
+	MOVL x+12(FP), SI
+	MOVL y+24(FP), BP
+	MOVL r+28(FP), CX	// c = r
+	MOVL z_len+4(FP), BX
+	LEAL (DI)(BX*4), DI
+	LEAL (SI)(BX*4), SI
+	NEGL BX			// i = -n
+	JMP E5
+
+L5:	MOVL (SI)(BX*4), AX
+	MULL BP
+	ADDL CX, AX
+	ADCL $0, DX
+	MOVL AX, (DI)(BX*4)
+	MOVL DX, CX
+	ADDL $1, BX		// i++
+
+E5:	CMPL BX, $0		// i < 0
+	JL L5
+
+	MOVL CX, c+32(FP)
+	RET
+
+
 // func addMulVVW(z, x []Word, y Word) (c Word)
 TEXT ·addMulVVW(SB),NOSPLIT,$0
 	MOVL z+0(FP), DI
@@ -202,6 +240,3 @@ E6:	CMPL BX, $0		// i < 0
 
 	MOVL CX, c+28(FP)
 	RET
-
-
-
