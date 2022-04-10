@@ -2,12 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE_go file.
 
+//go:build !math_big_pure_go
 // +build !math_big_pure_go
 
 #include "textflag.h"
 
 // This file provides fast assembly versions for the elementary
 // arithmetic operations on vectors implemented in arith.go.
+
+// func mulWW(x, y Word) (z1, z0 Word)
+TEXT ·mulWW(SB),NOSPLIT,$0
+	MOVQ x+0(FP), AX
+	MULQ y+8(FP)
+	MOVQ DX, z1+16(FP)
+	MOVQ AX, z0+24(FP)
+	RET
+
+
 
 // The carry bit is saved with SBBQ Rx, Rx: if the carry was set, Rx is -1, otherwise it is 0.
 // It is restored with ADDQ Rx, Rx: if Rx was -1 the carry is set, otherwise it is cleared.
@@ -297,9 +308,70 @@ X9a:	SHRQ CX, AX		// w1>>s
 X9b:	MOVQ $0, c+56(FP)
 	RET
 
+
+// func mulAddVWW(z, x []Word, y, r Word) (c Word)
+TEXT ·mulAddVWW(SB),NOSPLIT,$0
+	MOVQ z+0(FP), R10
+	MOVQ x+24(FP), R8
+	MOVQ y+48(FP), R9
+	MOVQ r+56(FP), CX	// c = r
+	MOVQ z_len+8(FP), R11
+	MOVQ $0, BX		// i = 0
+
+	CMPQ R11, $4
+	JL E5
+
+U5:	// i+4 <= n
+	// regular loop body unrolled 4x
+	MOVQ (0*8)(R8)(BX*8), AX
+	MULQ R9
+	ADDQ CX, AX
+	ADCQ $0, DX
+	MOVQ AX, (0*8)(R10)(BX*8)
+	MOVQ DX, CX
+	MOVQ (1*8)(R8)(BX*8), AX
+	MULQ R9
+	ADDQ CX, AX
+	ADCQ $0, DX
+	MOVQ AX, (1*8)(R10)(BX*8)
+	MOVQ DX, CX
+	MOVQ (2*8)(R8)(BX*8), AX
+	MULQ R9
+	ADDQ CX, AX
+	ADCQ $0, DX
+	MOVQ AX, (2*8)(R10)(BX*8)
+	MOVQ DX, CX
+	MOVQ (3*8)(R8)(BX*8), AX
+	MULQ R9
+	ADDQ CX, AX
+	ADCQ $0, DX
+	MOVQ AX, (3*8)(R10)(BX*8)
+	MOVQ DX, CX
+	ADDQ $4, BX		// i += 4
+
+	LEAQ 4(BX), DX
+	CMPQ DX, R11
+	JLE U5
+	JMP E5
+
+L5:	MOVQ (R8)(BX*8), AX
+	MULQ R9
+	ADDQ CX, AX
+	ADCQ $0, DX
+	MOVQ AX, (R10)(BX*8)
+	MOVQ DX, CX
+	ADDQ $1, BX		// i++
+
+E5:	CMPQ BX, R11		// i < n
+	JL L5
+
+	MOVQ CX, c+64(FP)
+	RET
+
+
 // func addMulVVW(z, x []Word, y Word) (c Word)
 TEXT ·addMulVVW(SB),NOSPLIT,$0
-	CMPB    ·support_adx(SB), $1
+	CMPB ·support_adx(SB), $1
 	JEQ adx
 	MOVQ z+0(FP), R10
 	MOVQ x+24(FP), R8
@@ -441,6 +513,9 @@ adx_short:
 
 	MOVQ CX, c+56(FP)
 	RET
+
+
+
 
 
 

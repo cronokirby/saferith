@@ -1,7 +1,8 @@
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE_go file.
 
+//go:build !math_big_pure_go
 // +build !math_big_pure_go
 
 #include "textflag.h"
@@ -215,6 +216,33 @@ X6:
 	RET
 
 
+// func mulAddVWW(z, x []Word, y, r Word) (c Word)
+TEXT ·mulAddVWW(SB),NOSPLIT,$0
+	MOVW	$0, R0
+	MOVW	z+0(FP), R1
+	MOVW	z_len+4(FP), R5
+	MOVW	x+12(FP), R2
+	MOVW	y+24(FP), R3
+	MOVW	r+28(FP), R4
+	ADD	R5<<2, R1, R5
+	B E8
+
+	// word loop
+L8:
+	MOVW.P	4(R2), R6
+	MULLU	R6, R3, (R7, R6)
+	ADD.S	R4, R6
+	ADC	R0, R7
+	MOVW.P	R6, 4(R1)
+	MOVW	R7, R4
+E8:
+	TEQ	R1, R5
+	BNE	L8
+
+	MOVW	R4, c+32(FP)
+	RET
+
+
 // func addMulVVW(z, x []Word, y Word) (c Word)
 TEXT ·addMulVVW(SB),NOSPLIT,$0
 	MOVW	$0, R0
@@ -244,3 +272,13 @@ E9:
 	MOVW	R4, c+28(FP)
 	RET
 
+
+
+// func mulWW(x, y Word) (z1, z0 Word)
+TEXT ·mulWW(SB),NOSPLIT,$0
+	MOVW	x+0(FP), R1
+	MOVW	y+4(FP), R2
+	MULLU	R1, R2, (R4, R3)
+	MOVW	R4, z1+8(FP)
+	MOVW	R3, z0+12(FP)
+	RET
