@@ -5,7 +5,7 @@
 //go:build s390x && !math_big_pure_go
 // +build s390x,!math_big_pure_go
 
-package big
+package saferith
 
 import (
 	"testing"
